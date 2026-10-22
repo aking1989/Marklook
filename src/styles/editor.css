@@ -1,0 +1,17 @@
+.editor-host {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+}
+
+.editor-host .cm-editor {
+  height: 100%;
+}
+
+.editor-host .cm-scroller {
+  overflow: auto;
+}
+
+.editor-host .cm-focused {
+  outline: none;
+}
