@@ -2,7 +2,7 @@
 
 跨 macOS / Windows 的本地 Markdown 阅读编辑器。以阅读体验为主，`Cmd/Ctrl+E` 在**阅读视图**与**源码编辑模式**之间切换，交互参照 Typora 的阅读视图 / 源码模式，但不做所见即所得的行内渲染。
 
-> 当前状态：**M0 开发中**。Tauri 应用可启动，已跑通打开（Mock）→ 阅读 → `Cmd/Ctrl+E` 源码 → 保存的主链路；原生文件对话框与 Windows 构建待验证。
+> 当前状态：**M0 开发中**。Tauri 应用可启动，已跑通打开（Mock）→ 阅读 → `Cmd/Ctrl+E` 源码 → 保存的主链路；系统打印 / PDF 已通过 macOS 实机验证（`Cmd/Ctrl+P`）；原生文件对话框与 Windows 构建待验证。
 
 ## 快速开始
 
@@ -49,6 +49,7 @@ Rust 通过 rustup 安装后，如终端找不到 `cargo`，执行 `source ~/.ca
 | [详细设计](./docs/02-detailed-design.md) | 工程结构、平台接口、渲染管线、阅读/编辑视图、滚动同步、工作区、搜索、保存与冲突、导出、安全、性能、构建 |
 | [测试方案](./docs/03-test-plan.md) | 测试分层、单元/组件/E2E/Rust 用例、安全与性能测试、双平台手动矩阵、CI 门禁 |
 | [开发计划](./docs/04-development-plan.md) | 里程碑、WBS、周计划、风险登记、质量门禁、发布计划、后续路线图 |
+| [PDF 验证报告](./docs/05-pdf-verification.md) | 系统打印路由、打印样式、macOS 实机结果与已知问题 |
 
 ## v1.0 范围
 

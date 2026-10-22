@@ -54,4 +54,6 @@ export const tauriPlatform: Platform = {
       eol: options.eol,
       bom: options.bom,
     }),
+
+  print: () => call<void>("print_window"),
 };

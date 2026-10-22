@@ -6,6 +6,7 @@ import "./styles/base.css";
 import "./styles/reader.css";
 import "./styles/editor.css";
 import "./styles/app.css";
+import "./styles/print.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

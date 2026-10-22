@@ -119,6 +119,11 @@ export const mockPlatform: Platform = {
       bom: options.bom,
     };
   },
+
+  async print() {
+    // 浏览器预览下交给浏览器自带打印。
+    window.print();
+  },
 };
 
 /** 仅用于开发与 E2E：重置 Mock 文件系统。 */

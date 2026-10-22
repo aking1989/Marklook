@@ -1,0 +1,142 @@
+/* ---------- 打印 / 导出 PDF ----------
+ * 单独成文件并最后加载：应用布局里的绝对定位与 overflow 会覆盖打印规则，
+ * 必须排在其他样式之后才能把阅读视图还原成可分页的文档流。
+ */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 18mm 16mm;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto;
+    overflow: visible;
+    background: #fff;
+    color-scheme: light;
+  }
+
+  .app-shell,
+  .workbench,
+  .content {
+    display: block;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    background: #fff;
+  }
+
+  .titlebar,
+  .sidebar,
+  .statusbar,
+  .error-banner,
+  .editor-host {
+    display: none !important;
+  }
+
+  /* 阅读视图平时是绝对定位的滚动容器，打印时需要回到文档流才能分页。 */
+  .reader-scroll {
+    position: static;
+    height: auto;
+    overflow: visible;
+    background: #fff;
+  }
+
+  /* 若从源码模式直接打印，兜底显示阅读视图。 */
+  .reader-scroll[hidden] {
+    display: block !important;
+  }
+
+  .md-body {
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    color: #1a1a1a;
+    font-size: 11pt;
+    line-height: 1.7;
+  }
+
+  .md-body a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .md-body h1 {
+    border-bottom-color: #d5d5d5;
+  }
+
+  .md-body pre,
+  .md-body table,
+  .md-body blockquote,
+  .md-body figure,
+  .md-body img {
+    break-inside: avoid;
+  }
+
+  .md-body h1,
+  .md-body h2,
+  .md-body h3,
+  .md-body h4 {
+    break-after: avoid;
+  }
+
+  .md-body pre {
+    overflow: visible;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-color: #ddd;
+    background: #f7f7f7;
+  }
+
+  .md-body :not(pre) > code {
+    background: #f2f2f2;
+  }
+
+  .md-body table {
+    display: table;
+    width: 100%;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .md-body th {
+    background: #f4f4f4;
+  }
+
+  .md-body blockquote {
+    border-left-color: #c9c9c9;
+    color: #444;
+  }
+
+  .md-body hr {
+    background: #d5d5d5;
+  }
+
+  .md-body th,
+  .md-body td {
+    border-color: #d5d5d5;
+  }
+
+  .md-body mark {
+    background: #fff8c5;
+    color: #1a1a1a;
+  }
+
+  .md-body .footnotes {
+    color: #444;
+    border-top-color: #d5d5d5;
+  }
+
+  /* 暗色主题的 color-scheme 会让打印画布变黑，打印时强制浅色。 */
+  [data-theme="dark"] {
+    color-scheme: light;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

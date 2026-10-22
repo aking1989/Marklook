@@ -32,6 +32,7 @@ export interface Platform {
     content: string,
     options: WriteOptions,
   ): Promise<WriteResult>;
+  print(): Promise<void>;
 }
 
 export type PlatformErrorCode =

@@ -3,6 +3,7 @@ import {
   FileText,
   Moon,
   Pencil,
+  Printer,
   Save,
   Sun,
 } from "lucide-react";
@@ -62,6 +63,12 @@ const THEME_LABEL: Record<Theme, string> = {
   dark: "暗色",
   sepia: "护眼",
 };
+
+function nextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
 
 export default function App() {
   const {
@@ -237,6 +244,49 @@ export default function App() {
     setRender,
   ]);
 
+  const printDocument = useCallback(async () => {
+    if (!path || !render) return;
+
+    // 打印始终使用阅读视图：源码模式下先渲染并切回阅读，等下一帧绘制完成。
+    if (mode === "edit") {
+      pendingReadLine.current = editorRef.current?.getCursorLine() ?? 1;
+      const nextContent = editorRef.current?.getValue() ?? content;
+      setContent(nextContent);
+      setDirty(nextContent !== savedContent);
+      try {
+        setRender(await renderMarkdown(nextContent, path));
+      } catch (caught) {
+        setError(errorMessage(caught));
+        return;
+      }
+      setMode("read");
+      await nextPaint();
+    }
+
+    try {
+      await Promise.race([
+        document.fonts.ready,
+        new Promise<void>((resolve) => {
+          window.setTimeout(resolve, 2000);
+        }),
+      ]);
+      await platform.print();
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
+  }, [
+    content,
+    mode,
+    path,
+    render,
+    savedContent,
+    setContent,
+    setDirty,
+    setError,
+    setMode,
+    setRender,
+  ]);
+
   const handleEditorChange = useCallback(() => {
     // 输入时只更新脏标记，避免每次按键都进入 React 状态。
     markDirty();
@@ -288,6 +338,9 @@ export default function App() {
       } else if (key === "s") {
         event.preventDefault();
         void save();
+      } else if (key === "p") {
+        event.preventDefault();
+        void printDocument();
       } else if (event.key === "=" || event.key === "+") {
         event.preventDefault();
         setFontSize(fontSize + 1);
@@ -299,7 +352,7 @@ export default function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [fontSize, openFile, save, setFontSize, toggleMode]);
+  }, [fontSize, openFile, printDocument, save, setFontSize, toggleMode]);
 
   const ThemeIcon = THEME_ICON[theme];
 
@@ -339,6 +392,15 @@ export default function App() {
           >
             <Save size={16} />
             保存
+          </button>
+          <button
+            className="tool-btn"
+            onClick={() => void printDocument()}
+            disabled={!path || !render}
+            title="打印 / 导出 PDF (⌘P)"
+          >
+            <Printer size={16} />
+            打印
           </button>
           <button
             className="tool-btn icon-only"
@@ -438,6 +500,10 @@ export default function App() {
             <div className="shortcut-row">
               <span>保存</span>
               <kbd>⌘S</kbd>
+            </div>
+            <div className="shortcut-row">
+              <span>打印 / PDF</span>
+              <kbd>⌘P</kbd>
             </div>
           </section>
         </aside>

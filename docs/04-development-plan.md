@@ -7,7 +7,7 @@
 | 状态 | 待评审 |
 | 上游文档 | [概要设计](./01-architecture.md) · [详细设计](./02-detailed-design.md) · [测试方案](./03-test-plan.md) |
 
-> **进度（2026-10-22）**：M0 主体完成。Tauri 应用可启动；Mock 环境下打开 → 阅读 → 源码切换 → 保存通过 Playwright 验证；Rust 原子写、EOL/BOM、allowlist 共 11 个单元测试通过。待办：原生打开对话框实机验证、Windows 构建验证。
+> **进度（2026-10-22）**：M0 主体完成。Tauri 应用可启动；Mock 环境下打开 → 阅读 → 源码切换 → 保存通过 Playwright 验证；Rust 原子写、EOL/BOM、allowlist 共 11 个单元测试通过；PDF 打印链路已在 macOS 实机验证，详见 [PDF 技术验证报告](./05-pdf-verification.md)。待办：原生打开对话框实机验证、Windows 构建验证。
 
 ---
 
