@@ -169,6 +169,12 @@ export async function renderMarkdown(
     processor.use(rehypeKatex);
   }
 
+  // 代码高亮同样在 sanitize 之后注入；大文件模式跳过以保护性能。
+  if (options.enableHighlight && capabilities.code && !options.largeFileMode) {
+    const { rehypeShiki } = await import("./plugins/rehypeShiki");
+    processor.use(rehypeShiki, { warnings });
+  }
+
   processor.use(rehypeStringify);
   const file = await processor.process(input.source);
   const html = String(file);
