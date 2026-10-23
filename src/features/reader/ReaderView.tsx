@@ -11,7 +11,7 @@ import {
   lineAtViewportTop,
   scrollToLine,
 } from "../../lib/lineMap";
-import type { RenderTheme } from "../../markdown/types";
+import type { OutlineItem, RenderTheme } from "../../markdown/types";
 import { isTauriRuntime } from "../../platform";
 import { renderMermaidBlock } from "./mermaidRenderer";
 
@@ -24,10 +24,15 @@ interface ReaderViewProps {
   html: string;
   hidden: boolean;
   theme: RenderTheme;
+  outline: OutlineItem[];
+  onOpenInternalDoc: (absolutePath: string) => void;
 }
 
 export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
-  function ReaderView({ html, hidden, theme }, ref) {
+  function ReaderView(
+    { html, hidden, theme, outline, onOpenInternalDoc },
+    ref,
+  ) {
     const scrollerRef = useRef<HTMLDivElement>(null);
     const articleRef = useRef<HTMLElement>(null);
     const mermaidEpoch = useRef(0);
@@ -75,12 +80,35 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
     );
 
     function handleClick(event: MouseEvent<HTMLElement>) {
+      // 远程图片"点击加载"：占位 figure 替换为真实 img。
+      const loadButton = (event.target as Element).closest(".load-remote-btn");
+      if (loadButton) {
+        const figure = loadButton.closest<HTMLElement>(".remote-image");
+        const remoteSrc = figure?.dataset.remoteSrc;
+        if (figure && remoteSrc) {
+          const alt =
+            figure.querySelector("figcaption")?.textContent ?? "远程图片";
+          const img = document.createElement("img");
+          img.src = remoteSrc;
+          img.alt = alt;
+          img.loading = "lazy";
+          figure.replaceWith(img);
+        }
+        return;
+      }
+
       const anchor = (event.target as Element).closest("a");
       if (!anchor) return;
 
-      const href = anchor.getAttribute("href");
-      if (!href) return;
+      const href = anchor.getAttribute("href") ?? "";
       event.preventDefault();
+
+      // 相对 Markdown 文档：交给应用层（脏检查后当前窗口打开）。
+      const internalDoc = anchor.getAttribute("data-internal-doc");
+      if (internalDoc) {
+        onOpenInternalDoc(internalDoc);
+        return;
+      }
 
       if (/^(https?:|mailto:)/i.test(href)) {
         if (isTauriRuntime) {
@@ -94,11 +122,19 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
       }
 
       if (href.startsWith("#")) {
-        const target = articleRef.current?.querySelector<HTMLElement>(
-          `[id="${CSS.escape(href.slice(1))}"]`,
-        );
-        target?.scrollIntoView({ block: "start" });
+        const slug = href.slice(1);
+        const target = outline.find((item) => item.id === slug);
+        if (target) {
+          readerScrollToLine(target.line);
+        }
       }
+    }
+
+    function readerScrollToLine(line: number): void {
+      const scroller = scrollerRef.current;
+      const article = articleRef.current;
+      if (!scroller || !article) return;
+      scrollToLine(buildLineMap(scroller, article), scroller, line);
     }
 
     return (

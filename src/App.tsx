@@ -140,6 +140,35 @@ export default function App() {
     return undefined;
   }, [mode, editorMounted, render?.html]);
 
+  const openPath = useCallback(
+    async (target: string, options?: { skipDirtyConfirm?: boolean }) => {
+      if (
+        !options?.skipDirtyConfirm &&
+        dirty &&
+        path &&
+        !window.confirm("当前文档有未保存的修改，仍要打开其他文件吗？")
+      ) {
+        return;
+      }
+
+      try {
+        setLoading();
+        const doc = await platform.readDocument(target);
+        const rendered = await renderMarkdown({
+          source: doc.content,
+          docPath: doc.path,
+          resolveAsset: platform.toAssetUrl,
+        });
+        pendingReadLine.current = 1;
+        setLoaded(doc, rendered);
+        editorRef.current?.setValue(doc.content);
+      } catch (caught) {
+        setError(errorMessage(caught));
+      }
+    },
+    [dirty, path, setLoaded, setError, setLoading],
+  );
+
   const openFile = useCallback(async () => {
     if (
       dirty &&
@@ -151,21 +180,13 @@ export default function App() {
 
     try {
       const picked = await platform.pickFile();
-      if (!picked) return;
-
-      setLoading();
-      const doc = await platform.readDocument(picked);
-      const rendered = await renderMarkdown({
-        source: doc.content,
-        docPath: doc.path,
-      });
-      pendingReadLine.current = 1;
-      setLoaded(doc, rendered);
-      editorRef.current?.setValue(doc.content);
+      if (picked) {
+        await openPath(picked, { skipDirtyConfirm: true });
+      }
     } catch (caught) {
       setError(errorMessage(caught));
     }
-  }, [dirty, path, setLoaded, setError, setLoading]);
+  }, [dirty, path, openPath, setError]);
 
   const save = useCallback(async () => {
     if (!path) return;
@@ -224,6 +245,7 @@ export default function App() {
       const rendered = await renderMarkdown({
         source: nextContent,
         docPath: path,
+        resolveAsset: platform.toAssetUrl,
       });
       setRender(rendered);
       setMode("read");
@@ -254,7 +276,13 @@ export default function App() {
       setContent(nextContent);
       setDirty(nextContent !== savedContent);
       try {
-        setRender(await renderMarkdown({ source: nextContent, docPath: path }));
+        setRender(
+          await renderMarkdown({
+            source: nextContent,
+            docPath: path,
+            resolveAsset: platform.toAssetUrl,
+          }),
+        );
       } catch (caught) {
         setError(errorMessage(caught));
         return;
@@ -523,6 +551,8 @@ export default function App() {
                 html={render.html}
                 hidden={mode === "edit"}
                 theme={theme}
+                outline={render.outline}
+                onOpenInternalDoc={(docPath) => void openPath(docPath)}
               />
               {editorMounted && (
                 <EditorViewHost

@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import {
   PlatformError,
   type Platform,
@@ -40,6 +40,18 @@ async function call<T>(
   }
 }
 
+function utf8ToBase64Url(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 export const tauriPlatform: Platform = {
   pickFile: () => call<string | null>("pick_file_and_allow"),
 
@@ -56,4 +68,11 @@ export const tauriPlatform: Platform = {
     }),
 
   print: () => call<void>("print_window"),
+
+  toAssetUrl(absolutePath: string): string {
+    // convertFileSrc 负责平台差异（macOS/Linux mdasset://，Windows http://mdasset.localhost）；
+    // "local/" 前缀 + base64url 路径由 Rust 端 decode_asset_request 解析。
+    const token = utf8ToBase64Url(absolutePath);
+    return convertFileSrc(`local/${token}`, "mdasset");
+  },
 };

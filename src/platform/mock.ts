@@ -124,6 +124,20 @@ export const mockPlatform: Platform = {
     // 浏览器预览下交给浏览器自带打印。
     window.print();
   },
+
+  toAssetUrl(absolutePath: string): string {
+    // Mock 环境没有真实文件系统：返回占位 SVG，保证阅读视图布局不破。
+    const safePath = absolutePath
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60">` +
+      `<rect width="100%" height="100%" fill="#e8e8e8" rx="6"/>` +
+      `<text x="50%" y="50%" font-size="10" text-anchor="middle" fill="#888" ` +
+      `font-family="sans-serif">${safePath}</text></svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  },
 };
 
 /** 仅用于开发与 E2E：重置 Mock 文件系统。 */

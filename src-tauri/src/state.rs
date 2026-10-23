@@ -61,6 +61,22 @@ impl AppState {
 
         Ok(path)
     }
+
+    /// 资源授权（mdasset 协议）：路径位于任一已打开根目录内，
+    /// 或位于任一已打开文件的同目录/子目录树内。调用方需先 canonicalize。
+    pub fn asset_allowed(&self, path: &std::path::Path) -> bool {
+        let files = self.allowed_files.read().expect("allowed_files poisoned");
+        let roots = self.allowed_roots.read().expect("allowed_roots poisoned");
+
+        if roots.iter().any(|root| path.starts_with(root)) {
+            return true;
+        }
+        files.iter().any(|file| {
+            file.parent()
+                .map(|dir| path.starts_with(dir))
+                .unwrap_or(false)
+        })
+    }
 }
 
 #[cfg(test)]

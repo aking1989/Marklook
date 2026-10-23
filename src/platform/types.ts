@@ -33,6 +33,8 @@ export interface Platform {
     options: WriteOptions,
   ): Promise<WriteResult>;
   print(): Promise<void>;
+  /** 绝对路径 → 可用于 <img src> 的资源 URL（Tauri: mdasset://；Mock: 占位图）。 */
+  toAssetUrl(absolutePath: string): string;
 }
 
 export type PlatformErrorCode =
