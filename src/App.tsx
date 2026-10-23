@@ -16,7 +16,11 @@ import { ReaderView, type ReaderHandle } from "./features/reader/ReaderView";
 import { renderMarkdown } from "./markdown/pipeline";
 import { PlatformError, platform } from "./platform";
 import { useDocumentStore, type DocStatus } from "./stores/documentStore";
-import { useSettingsStore, type Theme } from "./stores/settingsStore";
+import {
+  fontStack,
+  useSettingsStore,
+  type Theme,
+} from "./stores/settingsStore";
 
 function errorMessage(error: unknown): string {
   if (error instanceof PlatformError) return error.message;
@@ -90,8 +94,21 @@ export default function App() {
     clearError,
   } = useDocumentStore();
 
-  const { theme, fontSize, lineHeight, contentWidth, cycleTheme, setFontSize } =
-    useSettingsStore();
+  const {
+    theme,
+    fontSize,
+    lineHeight,
+    contentWidth,
+    readingFont,
+    allowRemoteImages,
+    cycleTheme,
+    setFontSize,
+    resetFontSize,
+    setLineHeight,
+    setContentWidth,
+    setReadingFont,
+    setAllowRemoteImages,
+  } = useSettingsStore();
 
   const readerRef = useRef<ReaderHandle>(null);
   const editorRef = useRef<EditorHandle>(null);
@@ -106,15 +123,40 @@ export default function App() {
     root.style.setProperty("--font-size", `${fontSize}px`);
     root.style.setProperty("--line-height", String(lineHeight));
     root.style.setProperty("--content-width", `${contentWidth}px`);
+    root.style.setProperty("--font-reading", fontStack(readingFont));
     root.style.setProperty(
       "--editor-font-size",
       `${Math.max(13, fontSize - 1)}px`,
     );
-  }, [theme, fontSize, lineHeight, contentWidth]);
+  }, [theme, fontSize, lineHeight, contentWidth, readingFont]);
 
   useEffect(() => {
     document.title = render?.title ? `${render.title} · 墨览` : "墨览";
   }, [render?.title]);
+
+  // 远程图片策略影响渲染产物：设置变化时对当前内容重渲染。
+  // 主题切换走 CSS 变量（Shiki/Mermaid 各自处理），不触发这里。
+  const policyFirstRun = useRef(true);
+  useEffect(() => {
+    if (policyFirstRun.current) {
+      policyFirstRun.current = false;
+      return;
+    }
+    if (!render) return;
+
+    const source = editorMounted
+      ? (editorRef.current?.getValue() ?? content)
+      : content;
+    void renderMarkdown({
+      source,
+      docPath: path,
+      resolveAsset: platform.toAssetUrl,
+      options: { allowRemoteImages, theme },
+    })
+      .then((next) => setRender(next))
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowRemoteImages]);
 
   useEffect(() => {
     if (mode === "edit" && editorMounted) {
@@ -158,6 +200,7 @@ export default function App() {
           source: doc.content,
           docPath: doc.path,
           resolveAsset: platform.toAssetUrl,
+          options: { allowRemoteImages, theme },
         });
         pendingReadLine.current = 1;
         setLoaded(doc, rendered);
@@ -166,7 +209,7 @@ export default function App() {
         setError(errorMessage(caught));
       }
     },
-    [dirty, path, setLoaded, setError, setLoading],
+    [allowRemoteImages, dirty, path, setLoaded, setError, setLoading, theme],
   );
 
   const openFile = useCallback(async () => {
@@ -227,7 +270,6 @@ export default function App() {
 
   const toggleMode = useCallback(async () => {
     if (!path || !render) return;
-
     if (mode === "read") {
       pendingEditLine.current = readerRef.current?.getTopLine() ?? 1;
       setEditorMounted(true);
@@ -246,6 +288,7 @@ export default function App() {
         source: nextContent,
         docPath: path,
         resolveAsset: platform.toAssetUrl,
+        options: { allowRemoteImages, theme },
       });
       setRender(rendered);
       setMode("read");
@@ -259,11 +302,13 @@ export default function App() {
     path,
     render,
     savedContent,
+    allowRemoteImages,
     setContent,
     setDirty,
     setError,
     setMode,
     setRender,
+    theme,
   ]);
 
   const printDocument = useCallback(async () => {
@@ -281,6 +326,7 @@ export default function App() {
             source: nextContent,
             docPath: path,
             resolveAsset: platform.toAssetUrl,
+            options: { allowRemoteImages, theme },
           }),
         );
       } catch (caught) {
@@ -308,11 +354,13 @@ export default function App() {
     path,
     render,
     savedContent,
+    allowRemoteImages,
     setContent,
     setDirty,
     setError,
     setMode,
     setRender,
+    theme,
   ]);
 
   const handleEditorChange = useCallback(() => {
@@ -375,12 +423,23 @@ export default function App() {
       } else if (event.key === "-") {
         event.preventDefault();
         setFontSize(fontSize - 1);
+      } else if (key === "0") {
+        event.preventDefault();
+        resetFontSize();
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [fontSize, openFile, printDocument, save, setFontSize, toggleMode]);
+  }, [
+    fontSize,
+    openFile,
+    printDocument,
+    resetFontSize,
+    save,
+    setFontSize,
+    toggleMode,
+  ]);
 
   const ThemeIcon = THEME_ICON[theme];
 
@@ -508,9 +567,66 @@ export default function App() {
               </div>
             </div>
             <div className="setting-row">
+              <span>行高</span>
+              <div className="stepper">
+                <button
+                  onClick={() => setLineHeight(lineHeight - 0.1)}
+                  aria-label="减小行高"
+                >
+                  −
+                </button>
+                <span>{lineHeight.toFixed(1)}</span>
+                <button
+                  onClick={() => setLineHeight(lineHeight + 0.1)}
+                  aria-label="增大行高"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="setting-row">
+              <span>栏宽</span>
+              <div className="stepper">
+                <button
+                  onClick={() => setContentWidth(contentWidth - 40)}
+                  aria-label="减小栏宽"
+                >
+                  −
+                </button>
+                <span>{contentWidth}</span>
+                <button
+                  onClick={() => setContentWidth(contentWidth + 40)}
+                  aria-label="增大栏宽"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="setting-row">
               <span>主题</span>
               <button className="text-btn" onClick={cycleTheme}>
                 {THEME_LABEL[theme]}
+              </button>
+            </div>
+            <div className="setting-row">
+              <span>字体</span>
+              <button
+                className="text-btn"
+                onClick={() =>
+                  setReadingFont(readingFont === "serif" ? "sans" : "serif")
+                }
+              >
+                {readingFont === "serif" ? "衬线" : "无衬线"}
+              </button>
+            </div>
+            <div className="setting-row">
+              <span>远程图片</span>
+              <button
+                className="text-btn"
+                onClick={() => setAllowRemoteImages(!allowRemoteImages)}
+                title="默认阻止所有网络图片请求；开启后仍需逐张点击加载"
+              >
+                {allowRemoteImages ? "点击加载" : "已阻止"}
               </button>
             </div>
           </section>
