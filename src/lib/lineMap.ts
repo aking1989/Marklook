@@ -99,3 +99,34 @@ export function scrollToLine(
 
   scroller.scrollTop = Math.max(0, targetTop - scroller.clientHeight * 0.1);
 }
+
+/**
+ * 带缓存与失效的行号映射：
+ * 内容替换、尺寸变化（窗口缩放/字体加载/图片加载/Mermaid 渲染）时调用 invalidate，
+ * 避免每次滚动都全量 querySelectorAll + getBoundingClientRect。
+ */
+export class LineMapTracker {
+  private anchors: LineAnchor[] | null = null;
+
+  constructor(
+    private readonly scroller: HTMLElement,
+    private readonly article: HTMLElement,
+  ) {}
+
+  invalidate(): void {
+    this.anchors = null;
+  }
+
+  private resolve(): LineAnchor[] {
+    this.anchors ??= buildLineMap(this.scroller, this.article);
+    return this.anchors;
+  }
+
+  topLine(): number {
+    return lineAtViewportTop(this.resolve(), this.scroller);
+  }
+
+  scrollTo(line: number): void {
+    scrollToLine(this.resolve(), this.scroller, line);
+  }
+}

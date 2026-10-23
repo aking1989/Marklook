@@ -7,7 +7,7 @@ import {
   Save,
   Sun,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   EditorViewHost,
   type EditorHandle,
@@ -113,6 +113,8 @@ export default function App() {
   const readerRef = useRef<ReaderHandle>(null);
   const editorRef = useRef<EditorHandle>(null);
   const [editorMounted, setEditorMounted] = useState(false);
+  const [activeLine, setActiveLine] = useState(1);
+  const outlineListRef = useRef<HTMLUListElement>(null);
   const pendingEditLine = useRef(1);
   const pendingReadLine = useRef(1);
   const syncTimer = useRef<number | null>(null);
@@ -181,6 +183,29 @@ export default function App() {
 
     return undefined;
   }, [mode, editorMounted, render?.html]);
+
+  // 大纲跟随：取"行号 <= 当前行"的最后一个标题，高亮并滚动进侧栏视野。
+  const handleTopLineChange = useCallback((line: number) => {
+    setActiveLine(line);
+  }, []);
+
+  const activeOutlineId = useMemo(() => {
+    if (!render) return null;
+    let current: string | null = null;
+    for (const item of render.outline) {
+      if (item.line <= activeLine) current = item.id;
+      else break;
+    }
+    return current;
+  }, [render, activeLine]);
+
+  useEffect(() => {
+    const list = outlineListRef.current;
+    if (!list) return;
+    list
+      .querySelector<HTMLLIElement>("li.active")
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeOutlineId]);
 
   const openPath = useCallback(
     async (target: string, options?: { skipDirtyConfirm?: boolean }) => {
@@ -531,10 +556,11 @@ export default function App() {
           {render && render.outline.length > 0 && (
             <section className="side-section outline">
               <h2>大纲</h2>
-              <ul>
+              <ul ref={outlineListRef}>
                 {render.outline.map((item) => (
                   <li
                     key={`${item.line}-${item.id}`}
+                    className={item.id === activeOutlineId ? "active" : ""}
                     style={{ paddingLeft: (item.depth - 1) * 12 }}
                   >
                     <button onClick={() => jumpTo(item.line)}>
@@ -669,6 +695,7 @@ export default function App() {
                 theme={theme}
                 outline={render.outline}
                 onOpenInternalDoc={(docPath) => void openPath(docPath)}
+                onTopLineChange={handleTopLineChange}
               />
               {editorMounted && (
                 <EditorViewHost
