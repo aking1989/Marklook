@@ -27,6 +27,11 @@ pub fn decode_asset_request(uri_path: &str) -> Option<String> {
     String::from_utf8(bytes).ok()
 }
 
+/// 资产 MIME 类型（白名单内），供 data URL 使用。
+pub fn mime_of(path: &std::path::Path) -> &'static str {
+    content_type(path).unwrap_or("application/octet-stream")
+}
+
 fn content_type(path: &std::path::Path) -> Option<&'static str> {
     let extension = path.extension()?.to_str()?.to_ascii_lowercase();
     Some(match extension.as_str() {

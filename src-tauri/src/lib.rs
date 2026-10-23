@@ -36,6 +36,8 @@ pub fn run() {
             commands::document::read_document,
             commands::document::write_document,
             commands::document::take_pending_open,
+            commands::document::read_asset_data_url,
+            commands::document::export_save_html,
             commands::system::print_window,
             commands::vault::scan_vault,
             commands::vault::list_dir,

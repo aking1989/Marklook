@@ -85,6 +85,12 @@ export const tauriPlatform: Platform = {
 
   print: () => call<void>("print_window"),
 
+  readAssetDataUrl: (absolutePath) =>
+    call<string | null>("read_asset_data_url", { path: absolutePath }),
+
+  exportSaveHtml: (defaultName, html) =>
+    call<string | null>("export_save_html", { defaultName, html }),
+
   toAssetUrl(absolutePath: string): string {
     // convertFileSrc 负责平台差异（macOS/Linux mdasset://，Windows http://mdasset.localhost）；
     // "local/" 前缀 + base64url 路径由 Rust 端 decode_asset_request 解析。

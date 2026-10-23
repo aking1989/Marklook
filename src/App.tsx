@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  FileDown,
   FileText,
   FolderOpen,
   Moon,
@@ -17,6 +18,10 @@ import {
 import { ReaderView, type ReaderHandle } from "./features/reader/ReaderView";
 import { SearchPanel } from "./features/search/SearchPanel";
 import { FileTree } from "./features/workspace/FileTree";
+import {
+  buildStandaloneHtml,
+  waitForRenderedFigures,
+} from "./features/export/exportHtml";
 import { renderMarkdown } from "./markdown/pipeline";
 import { PlatformError, platform } from "./platform";
 import { useDocumentStore, type DocStatus } from "./stores/documentStore";
@@ -760,6 +765,63 @@ export default function App() {
     theme,
   ]);
 
+  /** 导出 HTML：编辑态先切回阅读渲染，等待 Mermaid 完成后组装自包含文档。 */
+  const exportHtml = useCallback(async () => {
+    if (!path || !render) return;
+
+    // 与打印一致：导出始终基于阅读视图。
+    if (mode === "edit") {
+      pendingReadLine.current = editorRef.current?.getCursorLine() ?? 1;
+      const nextContent = editorRef.current?.getValue() ?? content;
+      setContent(nextContent);
+      setDirty(nextContent !== savedContent);
+      try {
+        setRender(
+          await renderMarkdown({
+            source: nextContent,
+            docPath: path,
+            resolveAsset: platform.toAssetUrl,
+            options: { allowRemoteImages, theme, largeFileMode: largeFile },
+          }),
+        );
+      } catch (caught) {
+        setError(errorMessage(caught));
+        return;
+      }
+      setMode("read");
+      await nextPaint();
+    }
+
+    try {
+      const article = document.querySelector<HTMLElement>(".md-body");
+      if (!article) return;
+      await waitForRenderedFigures(article);
+
+      const html = await buildStandaloneHtml(article, render.title, theme);
+      const defaultName = `${fileName(path).replace(/\.md$/i, "")}.html`;
+      const savedTo = await platform.exportSaveHtml(defaultName, html);
+      if (savedTo) {
+        showNotice(`已导出：${fileName(savedTo)}`);
+      }
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
+  }, [
+    allowRemoteImages,
+    content,
+    largeFile,
+    mode,
+    path,
+    render,
+    savedContent,
+    setContent,
+    setDirty,
+    setError,
+    setMode,
+    setRender,
+    theme,
+  ]);
+
   // 自动保存经 ref 调用最新 save，避免 onChange 回调随保存状态重建。
   const saveRef = useRef(save);
   saveRef.current = save;
@@ -875,7 +937,11 @@ export default function App() {
         void openFile();
       } else if (key === "e") {
         event.preventDefault();
-        void toggleMode();
+        if (event.shiftKey) {
+          void exportHtml();
+        } else {
+          void toggleMode();
+        }
       } else if (key === "s") {
         event.preventDefault();
         void save();
@@ -897,6 +963,7 @@ export default function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
+    exportHtml,
     fontSize,
     openFile,
     printDocument,
@@ -952,6 +1019,15 @@ export default function App() {
           >
             <Save size={16} />
             保存
+          </button>
+          <button
+            className="tool-btn"
+            onClick={() => void exportHtml()}
+            disabled={!path || !render}
+            title="导出 HTML 单文件 (⌘⇧E)"
+          >
+            <FileDown size={16} />
+            导出
           </button>
           <button
             className="tool-btn"
@@ -1187,6 +1263,10 @@ export default function App() {
             <div className="shortcut-row">
               <span>保存</span>
               <kbd>⌘S</kbd>
+            </div>
+            <div className="shortcut-row">
+              <span>导出 HTML</span>
+              <kbd>⌘⇧E</kbd>
             </div>
             <div className="shortcut-row">
               <span>打印 / PDF</span>

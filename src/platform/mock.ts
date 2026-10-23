@@ -197,6 +197,9 @@ function scanEntries(root: string, withContent: boolean): VaultEntry[] {
 let assetCounter = 0;
 let pickFileTarget = "/mock/welcome.md";
 
+/** 最近一次导出（E2E 断言用）。 */
+let lastExport: { defaultName: string; html: string } | null = null;
+
 export const mockPlatform: Platform = {
   async saveAsset(docPath, suggestedName) {
     assetCounter += 1;
@@ -263,6 +266,21 @@ export const mockPlatform: Platform = {
   async print() {
     // 浏览器预览下交给浏览器自带打印。
     window.print();
+  },
+
+  async readAssetDataUrl(_absolutePath: string): Promise<string | null> {
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40">` +
+      `<rect width="100%" height="100%" fill="#ddd" rx="4"/></svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  },
+
+  async exportSaveHtml(
+    defaultName: string,
+    html: string,
+  ): Promise<string | null> {
+    lastExport = { defaultName, html };
+    return `/mock/exports/${defaultName}`;
   },
 
   toAssetUrl(absolutePath: string): string {
@@ -375,5 +393,6 @@ if (typeof window !== "undefined") {
     setPickFile: (target: string) => {
       pickFileTarget = target;
     },
+    getLastExport: () => lastExport,
   };
 }

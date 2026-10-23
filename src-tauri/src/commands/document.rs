@@ -85,3 +85,51 @@ pub fn write_document(
 pub fn take_pending_open(state: State<'_, AppState>) -> Vec<String> {
     state.take_pending_open()
 }
+
+#[tauri::command]
+pub fn read_asset_data_url(
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, CommandError> {
+    let canonical = state
+        .ensure_allowed(&path)
+        .map_err(|_| CommandError::PathOutsideRoot(path.clone()))?;
+    let mime = crate::asset::mime_of(&canonical);
+    let bytes = std::fs::read(&canonical).map_err(CommandError::io)?;
+    use base64::Engine;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+    Ok(Some(format!("data:{mime};base64,{encoded}")))
+}
+
+#[tauri::command]
+pub async fn export_save_html(
+    app: tauri::AppHandle,
+    default_name: String,
+    html: String,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, CommandError> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let picked = app
+        .dialog()
+        .file()
+        .add_filter("HTML", &["html"])
+        .set_file_name(default_name)
+        .blocking_save_file();
+
+    let Some(file_path) = picked else {
+        return Ok(None);
+    };
+
+    let path = file_path
+        .into_path()
+        .map_err(|error| CommandError::Io(error.to_string()))?;
+
+    let canonical = dunce::canonicalize(&path)
+        .map_err(|_| CommandError::NotFound(path.to_string_lossy().into_owned()))?;
+
+    io::atomic_write(&canonical, html.as_bytes())?;
+    state.allow_file(canonical.clone());
+
+    Ok(Some(canonical.to_string_lossy().into_owned()))
+}

@@ -88,6 +88,10 @@ export interface Platform {
     options: WriteOptions,
   ): Promise<WriteResult>;
   print(): Promise<void>;
+  /** 本地资产 → data URL（导出 HTML 内联图片用）。 */
+  readAssetDataUrl(absolutePath: string): Promise<string | null>;
+  /** 导出保存对话框 + 写文件，返回保存路径；取消返回 null。 */
+  exportSaveHtml(defaultName: string, html: string): Promise<string | null>;
   /** 绝对路径 → 可用于 <img src> 的资源 URL（Tauri: mdasset://；Mock: 占位图）。 */
   toAssetUrl(absolutePath: string): string;
   scanVault(root: string, withContent: boolean): Promise<VaultScan>;
