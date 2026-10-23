@@ -15,6 +15,7 @@ import {
   type EditorHandle,
 } from "./features/editor/EditorViewHost";
 import { ReaderView, type ReaderHandle } from "./features/reader/ReaderView";
+import { SearchPanel } from "./features/search/SearchPanel";
 import { FileTree } from "./features/workspace/FileTree";
 import { renderMarkdown } from "./markdown/pipeline";
 import { PlatformError, platform } from "./platform";
@@ -124,6 +125,7 @@ export default function App() {
     openWorkspace,
     refresh: refreshWorkspace,
     toggleDir,
+    revealPath,
   } = useWorkspaceStore();
   const { recentFiles, pushFile, pushWorkspace } = useRecentsStore();
 
@@ -225,7 +227,10 @@ export default function App() {
   }, [activeOutlineId]);
 
   const openPath = useCallback(
-    async (target: string, options?: { skipDirtyConfirm?: boolean }) => {
+    async (
+      target: string,
+      options?: { skipDirtyConfirm?: boolean; gotoLine?: number },
+    ) => {
       if (
         !options?.skipDirtyConfirm &&
         dirty &&
@@ -244,9 +249,10 @@ export default function App() {
           resolveAsset: platform.toAssetUrl,
           options: { allowRemoteImages, theme },
         });
-        pendingReadLine.current = 1;
+        pendingReadLine.current = options?.gotoLine ?? 1;
         setLoaded(doc, rendered);
         editorRef.current?.setValue(doc.content);
+        revealPath(target);
         pushFile(target);
       } catch (caught) {
         setError(errorMessage(caught));
@@ -257,12 +263,28 @@ export default function App() {
       dirty,
       path,
       pushFile,
+      revealPath,
       setLoaded,
       setError,
       setLoading,
       theme,
     ],
   );
+
+  /** 搜索面板的索引数据源：带正文扫描当前工作区。 */
+  const requestSearchIndex = useCallback(async () => {
+    if (!workspaceRoot) return [];
+    const scan = await platform.scanVault(workspaceRoot, true);
+    return scan.entries
+      .filter((entry) => !entry.isDir && entry.content !== undefined)
+      .map((entry) => ({
+        path: entry.path,
+        title: entry.name,
+        body: entry.content ?? "",
+        mtimeMs: entry.mtimeMs,
+        size: entry.size,
+      }));
+  }, [workspaceRoot]);
 
   const openFolder = useCallback(async () => {
     try {
@@ -625,6 +647,13 @@ export default function App() {
                 {workspaceTruncated && (
                   <p className="tree-truncated">仅显示前 10,000 个条目</p>
                 )}
+                <SearchPanel
+                  key={workspaceRoot}
+                  onOpenResult={(resultPath, line) =>
+                    void openPath(resultPath, { gotoLine: line })
+                  }
+                  onRequestIndex={requestSearchIndex}
+                />
               </>
             ) : (
               <button

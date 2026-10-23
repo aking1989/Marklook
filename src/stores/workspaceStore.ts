@@ -97,6 +97,8 @@ interface WorkspaceState {
   openWorkspace: (root: string) => Promise<void>;
   refresh: () => Promise<void>;
   toggleDir: (path: string) => void;
+  /** 打开文件后在树中定位：展开其全部祖先目录。 */
+  revealPath: (filePath: string) => void;
   reset: () => void;
 }
 
@@ -142,6 +144,21 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   toggleDir(path) {
     const { expanded } = get();
     set({ expanded: { ...expanded, [path]: !expanded[path] } });
+  },
+
+  revealPath(filePath) {
+    const { root, expanded } = get();
+    if (!root) return;
+    const prefix = root.endsWith("/") ? root : `${root}/`;
+    if (!filePath.startsWith(prefix)) return;
+
+    const next = { ...expanded };
+    const segments = filePath.slice(prefix.length).split("/");
+    for (let depth = 1; depth < segments.length; depth += 1) {
+      const dirPath = `${prefix}${segments.slice(0, depth).join("/")}`;
+      next[dirPath] = true;
+    }
+    set({ expanded: next });
   },
 
   reset() {
