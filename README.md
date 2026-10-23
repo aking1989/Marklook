@@ -53,6 +53,7 @@ Rust 通过 rustup 安装后，如终端找不到 `cargo`，执行 `source ~/.ca
 | [测试方案](./docs/03-test-plan.md) | 测试分层、单元/组件/E2E/Rust 用例、安全与性能测试、双平台手动矩阵、CI 门禁 |
 | [开发计划](./docs/04-development-plan.md) | 里程碑、WBS、周计划、风险登记、质量门禁、发布计划、后续路线图 |
 | [PDF 验证报告](./docs/05-pdf-verification.md) | 系统打印路由、打印样式、macOS 实机结果与已知问题 |
+| [签名与分发说明](./docs/06-signing.md) | 现状（未签名）、macOS 公证与 Windows 签名的启用步骤 |
 
 ## v1.0 范围
 
