@@ -1,5 +1,6 @@
 mod asset;
 mod commands;
+mod draft;
 mod error;
 mod io;
 mod state;
@@ -27,6 +28,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::dialog::pick_file_and_allow,
             commands::dialog::pick_folder_and_allow,
+            commands::draft::save_draft,
+            commands::draft::load_draft,
+            commands::draft::clear_draft,
+            commands::draft::cleanup_drafts,
             commands::document::read_document,
             commands::document::write_document,
             commands::document::take_pending_open,
