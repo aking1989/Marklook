@@ -522,6 +522,7 @@ export default function App() {
                 ref={readerRef}
                 html={render.html}
                 hidden={mode === "edit"}
+                theme={theme}
               />
               {editorMounted && (
                 <EditorViewHost

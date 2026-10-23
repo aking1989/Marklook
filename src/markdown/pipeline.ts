@@ -175,6 +175,12 @@ export async function renderMarkdown(
     processor.use(rehypeShiki, { warnings });
   }
 
+  // Mermaid 只替换为占位块，实际渲染在阅读视图挂载后串行执行。
+  if (options.enableMermaid && capabilities.mermaid) {
+    const { rehypeMermaid } = await import("./plugins/rehypeMermaid");
+    processor.use(rehypeMermaid);
+  }
+
   processor.use(rehypeStringify);
   const file = await processor.process(input.source);
   const html = String(file);

@@ -215,3 +215,49 @@
 .md-body mark {
   background: var(--mark-bg);
 }
+
+/* Mermaid 图表：占位、居中、错误卡片 */
+.md-body .mermaid-block {
+  display: flex;
+  justify-content: center;
+  margin: 1.2em 0;
+  padding: 16px;
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius);
+  background: var(--code-bg);
+  overflow-x: auto;
+}
+
+.md-body .mermaid-block svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.md-body .mermaid-placeholder {
+  color: var(--fg-muted);
+  font-size: 0.9em;
+}
+
+.md-body .mermaid-error-card {
+  width: 100%;
+  padding: 4px 0;
+  color: var(--danger, #c0392b);
+  font-size: 0.9em;
+}
+
+.md-body .mermaid-error-message {
+  margin: 0 0 8px;
+}
+
+.md-body .mermaid-error-card details {
+  color: var(--fg-muted);
+}
+
+.md-body .mermaid-error-card pre {
+  margin: 0.5em 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  white-space: pre-wrap;
+  font-size: 0.85em;
+}

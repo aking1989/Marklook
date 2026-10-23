@@ -11,7 +11,9 @@ import {
   lineAtViewportTop,
   scrollToLine,
 } from "../../lib/lineMap";
+import type { RenderTheme } from "../../markdown/types";
 import { isTauriRuntime } from "../../platform";
+import { renderMermaidBlock } from "./mermaidRenderer";
 
 export interface ReaderHandle {
   getTopLine(): number;
@@ -21,18 +23,36 @@ export interface ReaderHandle {
 interface ReaderViewProps {
   html: string;
   hidden: boolean;
+  theme: RenderTheme;
 }
 
 export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
-  function ReaderView({ html, hidden }, ref) {
+  function ReaderView({ html, hidden, theme }, ref) {
     const scrollerRef = useRef<HTMLDivElement>(null);
     const articleRef = useRef<HTMLElement>(null);
+    const mermaidEpoch = useRef(0);
 
     useEffect(() => {
-      if (articleRef.current) {
-        articleRef.current.innerHTML = html;
-      }
-    }, [html]);
+      const article = articleRef.current;
+      if (!article) return;
+      article.innerHTML = html;
+
+      // Mermaid 串行渲染：全局状态不容并发；epoch 防止旧内容覆盖新文档。
+      const blocks = Array.from(
+        article.querySelectorAll<HTMLElement>(".mermaid-block"),
+      );
+      if (blocks.length === 0) return;
+
+      const epoch = mermaidEpoch.current + 1;
+      mermaidEpoch.current = epoch;
+
+      void (async () => {
+        for (const block of blocks) {
+          if (mermaidEpoch.current !== epoch) return;
+          await renderMermaidBlock(block, theme);
+        }
+      })();
+    }, [html, theme]);
 
     useImperativeHandle(
       ref,
