@@ -1,9 +1,12 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
 } from "react";
 import { LineMapTracker } from "../../lib/lineMap";
@@ -26,7 +29,13 @@ interface ReaderViewProps {
   onTopLineChange?: (line: number) => void;
 }
 
+interface LightboxState {
+  src: string;
+  alt: string;
+}
+
 const SCROLL_THROTTLE_MS = 100;
+const COPY_FEEDBACK_MS = 1500;
 
 export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
   function ReaderView(
@@ -39,6 +48,7 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
     const mermaidEpoch = useRef(0);
     const topLineCallback = useRef(onTopLineChange);
     topLineCallback.current = onTopLineChange;
+    const [lightbox, setLightbox] = useState<LightboxState | null>(null);
 
     useEffect(() => {
       const article = articleRef.current;
@@ -49,16 +59,42 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
       trackerRef.current?.invalidate();
       trackerRef.current ??= new LineMapTracker(scroller, article);
 
+      // 每个代码块注入复制按钮（绝对定位右上角，样式见 reader.css）。
+      for (const pre of article.querySelectorAll<HTMLElement>("pre")) {
+        if (pre.querySelector(".code-copy-btn")) continue;
+        const button = document.createElement("button");
+        button.className = "code-copy-btn";
+        button.type = "button";
+        button.textContent = "复制";
+        pre.appendChild(button);
+      }
+
       // 内容高度变化（图片加载、Mermaid 渲染、字体加载、窗口缩放）都会让锚点失效。
       const observer = new ResizeObserver(() => {
         trackerRef.current?.invalidate();
       });
       observer.observe(article);
 
-      // 图片加载完成/失败后高度可能变化：主动失效一次。
       const invalidateOnMedia = () => trackerRef.current?.invalidate();
+      // 图片加载失败：替换为失败占位（alt + 路径）。
+      const onMediaError = (event: Event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLImageElement)) return;
+        const failed = document.createElement("span");
+        failed.className = "image-error";
+        failed.textContent = `图片加载失败：${
+          target.getAttribute("data-abs-src") ??
+          target.getAttribute("src") ??
+          ""
+        }`;
+        target.replaceWith(failed);
+      };
+      const onMediaErrorAndInvalidate = (event: Event) => {
+        onMediaError(event);
+        invalidateOnMedia();
+      };
       article.addEventListener("load", invalidateOnMedia, true);
-      article.addEventListener("error", invalidateOnMedia, true);
+      article.addEventListener("error", onMediaErrorAndInvalidate, true);
 
       // Mermaid 串行渲染：全局状态不容并发；epoch 防止旧内容覆盖新文档。
       const blocks = Array.from(
@@ -79,7 +115,7 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
       return () => {
         observer.disconnect();
         article.removeEventListener("load", invalidateOnMedia, true);
-        article.removeEventListener("error", invalidateOnMedia, true);
+        article.removeEventListener("error", onMediaErrorAndInvalidate, true);
       };
     }, [html, theme]);
 
@@ -108,6 +144,16 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
       };
     }, [onTopLineChange]);
 
+    // 灯箱：Esc 关闭。
+    useEffect(() => {
+      if (!lightbox) return;
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === "Escape") setLightbox(null);
+      };
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }, [lightbox]);
+
     useImperativeHandle(
       ref,
       () => ({
@@ -122,7 +168,44 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
       [],
     );
 
+    const handleCopy = useCallback(async (button: HTMLButtonElement) => {
+      const pre = button.closest("pre");
+      const code = pre?.querySelector("code");
+      if (!code) return;
+
+      const text = code.textContent ?? "";
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // 回退方案：临时选中后 execCommand。
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        document.execCommand("copy");
+        selection?.removeAllRanges();
+      }
+
+      button.textContent = "已复制";
+      button.disabled = true;
+      window.setTimeout(() => {
+        button.textContent = "复制";
+        button.disabled = false;
+      }, COPY_FEEDBACK_MS);
+    }, []);
+
     function handleClick(event: MouseEvent<HTMLElement>) {
+      // 代码块复制按钮。
+      const copyTarget = (event.target as Element).closest<HTMLButtonElement>(
+        ".code-copy-btn",
+      );
+      if (copyTarget) {
+        event.preventDefault();
+        void handleCopy(copyTarget);
+        return;
+      }
+
       // 远程图片"点击加载"：占位 figure 替换为真实 img。
       const loadButton = (event.target as Element).closest(".load-remote-btn");
       if (loadButton) {
@@ -138,6 +221,18 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
           figure.replaceWith(img);
           trackerRef.current?.invalidate();
         }
+        return;
+      }
+
+      // 图片灯箱。
+      if (
+        event.target instanceof HTMLImageElement &&
+        event.target.closest(".md-body")
+      ) {
+        setLightbox({
+          src: event.target.src,
+          alt: event.target.alt,
+        });
         return;
       }
 
@@ -174,9 +269,34 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
       }
     }
 
+    function handleLightboxClick(event: MouseEvent<HTMLDivElement>) {
+      if (event.target === event.currentTarget) setLightbox(null);
+    }
+
+    function handleLightboxKey(event: ReactKeyboardEvent<HTMLDivElement>) {
+      if (event.key === "Escape") setLightbox(null);
+    }
+
     return (
       <div ref={scrollerRef} className="reader-scroll" hidden={hidden}>
-        <article ref={articleRef} className="md-body" onClick={handleClick} />
+        {html.trim() === "" ? (
+          <div className="empty-doc">这篇文档是空的</div>
+        ) : (
+          <article ref={articleRef} className="md-body" onClick={handleClick} />
+        )}
+
+        {lightbox && (
+          <div
+            className="lightbox-overlay"
+            onClick={handleLightboxClick}
+            onKeyDown={handleLightboxKey}
+            role="dialog"
+            aria-modal="true"
+            aria-label={lightbox.alt || "图片预览"}
+          >
+            <img src={lightbox.src} alt={lightbox.alt} />
+          </div>
+        )}
       </div>
     );
   },

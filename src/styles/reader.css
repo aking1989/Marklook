@@ -264,3 +264,71 @@
   white-space: pre-wrap;
   font-size: 0.85em;
 }
+
+/* 代码块复制按钮 */
+.md-body pre {
+  position: relative;
+}
+
+.md-body .code-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--code-border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--fg-muted);
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  cursor: pointer;
+}
+
+.md-body pre:hover .code-copy-btn,
+.md-body .code-copy-btn:focus-visible,
+.md-body .code-copy-btn:disabled {
+  opacity: 1;
+}
+
+.md-body .code-copy-btn:disabled {
+  color: var(--accent);
+}
+
+/* 图片加载失败占位 */
+.md-body .image-error {
+  display: block;
+  margin: 1em 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--danger, #c0392b);
+  border-radius: 6px;
+  color: var(--danger, #c0392b);
+  font-size: 0.85em;
+  word-break: break-all;
+}
+
+/* 图片灯箱 */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: rgb(0 0 0 / 78%);
+  cursor: zoom-out;
+}
+
+.lightbox-overlay img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 4px;
+}
+
+/* 空文档 */
+.empty-doc {
+  padding: 120px 0;
+  color: var(--fg-muted);
+  text-align: center;
+}
