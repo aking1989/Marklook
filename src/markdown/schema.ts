@@ -23,5 +23,14 @@ export const sanitizeSchema: Schema = {
       ...(defaultSchema.attributes?.code ?? []),
       ["className", /^language-/],
     ],
+    // remark-math v6 在 sanitize 之前生成的占位 class，KaTeX 在 sanitize 之后注入最终结果。
+    span: [
+      ...(defaultSchema.attributes?.span ?? []),
+      ["className", "language-math", "math", "math-inline", "math-display"],
+    ],
+    div: [
+      ...(defaultSchema.attributes?.div ?? []),
+      ["className", "language-math", "math", "math-inline", "math-display"],
+    ],
   },
 };

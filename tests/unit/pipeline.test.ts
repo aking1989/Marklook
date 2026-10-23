@@ -95,4 +95,46 @@ describe("renderMarkdown", () => {
     });
     expect(withH1.title).toBe("元标题");
   });
+
+  it("渲染行内与块级公式（KaTeX）", async () => {
+    const result = await renderMarkdown({
+      source:
+        "质能方程 $E=mc^2$ 如下。\n\n$$\n\\int_0^1 x\\,dx = \\frac{1}{2}\n$$\n",
+      docPath: null,
+    });
+
+    expect(result.html).toContain("katex");
+    expect(result.html).toContain("katex-display");
+    expect(result.html).toContain("katex-mathml");
+  });
+
+  it("enableMath 关闭时保留原文不加载 KaTeX", async () => {
+    const result = await renderMarkdown({
+      source: "$E=mc^2$",
+      docPath: null,
+      options: { enableMath: false },
+    });
+
+    expect(result.html).not.toContain("katex");
+    expect(result.html).toContain("$E=mc^2$");
+  });
+
+  it("单个 $ 的金额文本保持字面，不触发公式渲染", async () => {
+    const result = await renderMarkdown({
+      source: "价格是 $100。",
+      docPath: null,
+    });
+
+    expect(result.html).not.toContain('class="katex"');
+    expect(result.html).toContain("$100");
+  });
+
+  it("单条非法公式不中断渲染", async () => {
+    const result = await renderMarkdown({
+      source: "$\\frac{$ 好\n\n# 标题",
+      docPath: null,
+    });
+
+    expect(result.html).toContain("<h1");
+  });
 });

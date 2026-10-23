@@ -7,10 +7,12 @@ import rehypeSanitize from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified, type Plugin } from "unified";
 import { visit } from "unist-util-visit";
+import { detectCapabilities } from "./detect";
 import { sanitizeSchema } from "./schema";
 import type {
   OutlineItem,
@@ -141,17 +143,33 @@ export async function renderMarkdown(
   const warnings: RenderWarning[] = [];
   const frontmatter: Record<string, unknown> = {};
   const slugger = new GithubSlugger();
+  const options = { ...defaultRenderOptions(), ...input.options };
+  const capabilities = detectCapabilities(input.source);
 
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
-    .use(remarkFrontmatter, ["yaml"])
+    .use(remarkFrontmatter, ["yaml"]);
+
+  // enableMath 关闭时不挂 remark-math，$ 保持字面文本。
+  if (options.enableMath) {
+    processor.use(remarkMath);
+  }
+
+  processor
     .use(remarkCollect, { outline, slugger, frontmatter, warnings })
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeRaw)
-    .use(rehypeSanitize, sanitizeSchema)
-    .use(rehypeStringify);
+    .use(rehypeSanitize, sanitizeSchema);
 
+  // 数学渲染在 sanitize 之后注入，KaTeX 输出不再过 schema；
+  // rehype-katex v7 固定不抛错，单条公式失败渲染为错误文本。
+  if (options.enableMath && capabilities.math) {
+    const { default: rehypeKatex } = await import("rehype-katex");
+    processor.use(rehypeKatex);
+  }
+
+  processor.use(rehypeStringify);
   const file = await processor.process(input.source);
   const html = String(file);
   const title = resolveTitle(frontmatter, outline, input.docPath);

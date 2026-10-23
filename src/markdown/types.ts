@@ -30,12 +30,7 @@ export interface RenderMeta {
 }
 
 export type RenderWarningKind =
-  | "frontmatter"
-  | "math"
-  | "mermaid"
-  | "highlight"
-  | "link"
-  | "image";
+  "frontmatter" | "math" | "mermaid" | "highlight" | "link" | "image";
 
 export interface RenderWarning {
   kind: RenderWarningKind;

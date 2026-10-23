@@ -254,9 +254,7 @@ export default function App() {
       setContent(nextContent);
       setDirty(nextContent !== savedContent);
       try {
-        setRender(
-          await renderMarkdown({ source: nextContent, docPath: path }),
-        );
+        setRender(await renderMarkdown({ source: nextContent, docPath: path }));
       } catch (caught) {
         setError(errorMessage(caught));
         return;
