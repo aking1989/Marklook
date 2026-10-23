@@ -7,7 +7,7 @@
 | 状态 | 待评审 |
 | 上游文档 | [概要设计](./01-architecture.md) · [详细设计](./02-detailed-design.md) · [测试方案](./03-test-plan.md) |
 
-> **进度（2026-10-23）**：**M2 完成，M3 待开工**。M0：主链路与 PDF 打印（系统打印路线）验证；EOL/BOM 字节级往返固化为 Rust 测试。M1：完整渲染管线（frontmatter/KaTeX/Shiki 双主题/Mermaid/sanitize/mdasset:// 资源协议/远程图片零网络）、滚动同步缓存化、大纲跟随、排版设置持久化；100KB 渲染实测约 190ms（预算修订为 200ms，见变更记录 v0.2）。M2：工作区扫描（ignore crate，gitignore/忽略目录/条目上限）、文件树（数字感知排序、revealPath 定位）、最近记录、跨文件搜索（MiniSearch Worker + Intl.Segmenter 二元组分词；实测 1,000 文件索引 141ms、查询 3ms，远优于 2s/50ms 预算）、文件监听（notify 300ms 去抖，单文档父目录监听捕获 rename 保存）、外部变更检测与冲突面板（覆盖/加载磁盘/忽略，静默重载保持滚动位置）、自动保存（800ms 去抖，可在设置关闭）、崩溃草稿（2s 去抖落盘、打开时恢复提示、7 天清理）。质量门禁：Vitest 67 项、Playwright 17 项、cargo fmt/clippy/test 38 项，本地全绿；CI 覆盖前端全门禁 + macOS/Windows Rust 矩阵（首跑结果需在 GitHub Actions 页面人工查看，开发机无私有仓库访问凭据）。**下一步：M3 源码编辑（§3 M3）。**
+> **进度（2026-10-23）**：**M3 完成，M4 待开工**。M0：主链路与 PDF 打印（系统打印路线）验证；EOL/BOM 字节级往返固化为 Rust 测试。M1：完整渲染管线（frontmatter/KaTeX/Shiki 双主题/Mermaid/sanitize/mdasset:// 资源协议/远程图片零网络）、滚动同步缓存化、大纲跟随、排版设置持久化；100KB 渲染实测约 190ms（预算修订为 200ms，见变更记录 v0.2）。M2：工作区扫描（ignore crate，gitignore/忽略目录/条目上限）、文件树（数字感知排序、revealPath 定位）、最近记录、跨文件搜索（MiniSearch Worker + Intl.Segmenter 二元组分词；实测 1,000 文件索引 141ms、查询 3ms，远优于 2s/50ms 预算）、文件监听（notify 300ms 去抖，单文档父目录监听捕获 rename 保存）、外部变更检测与冲突面板（覆盖/加载磁盘/忽略，静默重载保持滚动位置）、自动保存（800ms 去抖，可在设置关闭）、崩溃草稿（2s 去抖落盘、打开时恢复提示、7 天清理）。质量门禁：Vitest 67 项、Playwright 17 项、cargo fmt/clippy/test 38 项，本地全绿；CI 覆盖前端全门禁 + macOS/Windows Rust 矩阵（首跑结果需在 GitHub Actions 页面人工查看，开发机无私有仓库访问凭据）。M3：图片粘贴/拖入 → assets/ 目录（文件名清洗 + 去重 + 白名单）并插入 Markdown 语法；撤销历史与光标位置跨模式切换保持（EditorView 常驻，E2E 验证往返+撤销/重做）；IME 组合输入跳过全局快捷键；大文件模式（>2MB 或 >25k 行：渲染跳过 Shiki、编辑器关行号/当前行装饰，状态栏标识；E2E 覆盖）。质量门禁：Vitest 67 项、Playwright 21 项、cargo 41 项，本地全绿。**下一步：M4 发布工程（§3 M4）。**
 
 ---
 
