@@ -741,6 +741,27 @@ export default function App() {
   const saveRef = useRef(save);
   saveRef.current = save;
 
+  /** 粘贴/拖入图片：保存到文档的 assets/ 并返回相对路径。 */
+  const handlePasteImage = useCallback(
+    async (
+      suggestedName: string,
+      bytes: Uint8Array,
+    ): Promise<string | null> => {
+      if (!path) {
+        showNotice("请先打开或保存文档，再粘贴图片");
+        return null;
+      }
+      try {
+        const result = await platform.saveAsset(path, suggestedName, bytes);
+        return result.relativePath;
+      } catch (caught) {
+        setError(errorMessage(caught));
+        return null;
+      }
+    },
+    [path, setError],
+  );
+
   const writeDraft = useCallback(() => {
     const docPath = pathRef.current;
     if (!docPath) return;
@@ -1231,6 +1252,7 @@ export default function App() {
                   visible={mode === "edit"}
                   theme={theme}
                   onChange={handleEditorChange}
+                  onPasteImage={handlePasteImage}
                 />
               )}
             </>

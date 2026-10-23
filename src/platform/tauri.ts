@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   PlatformError,
   type DraftRecord,
+  type SaveAssetResult,
   type FsChangeEvent,
   type Platform,
   type PlatformErrorCode,
@@ -59,6 +60,13 @@ function utf8ToBase64Url(text: string): string {
 }
 
 export const tauriPlatform: Platform = {
+  saveAsset: (docPath, suggestedName, bytes) =>
+    call<SaveAssetResult>("save_asset", {
+      docPath,
+      suggestedName,
+      bytes: Array.from(bytes),
+    }),
+
   pickFile: () => call<string | null>("pick_file_and_allow"),
 
   pickFolder: () => call<string | null>("pick_folder_and_allow"),

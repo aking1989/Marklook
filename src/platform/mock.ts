@@ -181,7 +181,21 @@ function scanEntries(root: string, withContent: boolean): VaultEntry[] {
   return entries;
 }
 
+let assetCounter = 0;
+
 export const mockPlatform: Platform = {
+  async saveAsset(docPath, suggestedName) {
+    assetCounter += 1;
+    const extension = suggestedName.includes(".")
+      ? (suggestedName.split(".").pop() ?? "png")
+      : "png";
+    const relativePath = `assets/image-${assetCounter}.${extension}`;
+    return {
+      absolutePath: `${docPath.slice(0, docPath.lastIndexOf("/"))}/${relativePath}`,
+      relativePath,
+    };
+  },
+
   async pickFile() {
     return "/mock/welcome.md";
   },

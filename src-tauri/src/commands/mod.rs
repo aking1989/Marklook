@@ -1,3 +1,4 @@
+pub mod asset;
 pub mod dialog;
 pub mod document;
 pub mod draft;

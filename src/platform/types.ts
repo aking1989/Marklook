@@ -67,7 +67,18 @@ export interface WatchOptions {
   targetFile?: string;
 }
 
+export interface SaveAssetResult {
+  absolutePath: string;
+  /** 相对文档路径（assets/xxx.png），用于插入 Markdown。 */
+  relativePath: string;
+}
+
 export interface Platform {
+  saveAsset(
+    docPath: string,
+    suggestedName: string,
+    bytes: Uint8Array,
+  ): Promise<SaveAssetResult>;
   pickFile(): Promise<string | null>;
   pickFolder(): Promise<string | null>;
   readDocument(path: string): Promise<TextDocument>;

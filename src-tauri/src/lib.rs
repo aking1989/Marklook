@@ -26,6 +26,7 @@ pub fn run() {
         .manage(AppState::default())
         .manage(WatchRegistry::default())
         .invoke_handler(tauri::generate_handler![
+            commands::asset::save_asset,
             commands::dialog::pick_file_and_allow,
             commands::dialog::pick_folder_and_allow,
             commands::draft::save_draft,

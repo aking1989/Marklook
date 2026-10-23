@@ -43,6 +43,14 @@ interface EditorViewHostProps {
   visible: boolean;
   theme: Theme;
   onChange: () => void;
+  /**
+   * 粘贴/拖入图片时由宿主保存到 assets/，返回可插入的相对路径；
+   * 返回 null 表示放弃（未保存文档等场景，宿主负责提示）。
+   */
+  onPasteImage?: (
+    suggestedName: string,
+    bytes: Uint8Array,
+  ) => Promise<string | null>;
 }
 
 function layoutTheme(): Extension {
@@ -86,16 +94,78 @@ function themeExtension(theme: Theme): Extension {
 }
 
 export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
-  function EditorViewHost({ initialValue, visible, theme, onChange }, ref) {
+  function EditorViewHost(
+    { initialValue, visible, theme, onChange, onPasteImage },
+    ref,
+  ) {
     const hostRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const themeCompartment = useRef(new Compartment());
     const onChangeRef = useRef(onChange);
+    const onPasteImageRef = useRef(onPasteImage);
     const initialValueRef = useRef(initialValue);
     const themeRef = useRef(theme);
 
     onChangeRef.current = onChange;
+    onPasteImageRef.current = onPasteImage;
     themeRef.current = theme;
+
+    /** 提取事件中的图片文件；无图片返回空数组。 */
+    function collectImages(items: DataTransferItemList | null): File[] {
+      if (!items) return [];
+      const images: File[] = [];
+      for (const item of Array.from(items)) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) images.push(file);
+        }
+      }
+      return images;
+    }
+
+    /** 保存图片到 assets 并在光标处逐张插入 Markdown 语法。 */
+    async function insertImages(files: File[]): Promise<boolean> {
+      const handler = onPasteImageRef.current;
+      if (!handler || files.length === 0) return false;
+
+      let inserted = false;
+      for (const file of files) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        try {
+          const relativePath = await handler(file.name || "image", bytes);
+          if (!relativePath) continue;
+          const view = viewRef.current;
+          if (!view) break;
+          const selection = view.state.selection.main;
+          view.dispatch({
+            changes: {
+              from: selection.to,
+              insert: `${inserted ? "\n" : ""}![${file.name || "image"}](${relativePath})\n`,
+            },
+            selection: { anchor: selection.to },
+          });
+          onChangeRef.current();
+          inserted = true;
+        } catch {
+          // 单张失败继续下一张。
+        }
+      }
+      return inserted;
+    }
+
+    function handlePaste(event: ClipboardEvent): void {
+      const images = collectImages(event.clipboardData?.items ?? null);
+      if (images.length === 0) return; // 普通文本交给 CodeMirror
+      event.preventDefault();
+      void insertImages(images);
+    }
+
+    function handleDrop(event: DragEvent): void {
+      const images = collectImages(event.dataTransfer?.items ?? null);
+      if (images.length === 0) return;
+      event.preventDefault();
+      void insertImages(images);
+    }
 
     function createState(value: string): EditorState {
       return EditorState.create({
@@ -138,11 +208,18 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
       });
       viewRef.current = view;
 
+      host.addEventListener("paste", handlePaste);
+      host.addEventListener("drop", handleDrop);
+
       return () => {
+        host.removeEventListener("paste", handlePaste);
+        host.removeEventListener("drop", handleDrop);
         view.destroy();
         viewRef.current = null;
       };
       // EditorView 只创建一次；后续通过 setValue / Compartment 更新。
+      // handlePaste/handleDrop 经 ref 读取最新实现。
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
