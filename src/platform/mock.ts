@@ -342,6 +342,18 @@ export const mockPlatform: Platform = {
     // Mock 不需要真实监听。
   },
 
+  async takePendingOpen() {
+    return [] as string[];
+  },
+
+  onAppEvent(): () => void {
+    return () => undefined;
+  },
+
+  async closeWindow(): Promise<void> {
+    // Mock 无窗口。
+  },
+
   onFsChange(callback) {
     fsListeners.add(callback);
     return () => fsListeners.delete(callback);

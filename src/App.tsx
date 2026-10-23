@@ -169,6 +169,77 @@ export default function App() {
     void platform.cleanupDrafts().catch(() => undefined);
   }, []);
 
+  // 文件关联冷启动：打开命令行传入的 .md。
+  useEffect(() => {
+    void platform
+      .takePendingOpen()
+      .then((paths) => {
+        if (paths.length > 0) void openPath(paths[0] as string);
+      })
+      .catch(() => undefined);
+    // 仅启动时执行一次。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 应用级事件：原生菜单 / 关闭确认 / 单实例打开。
+  const appActionsRef = useRef<Record<string, () => void>>({});
+  useEffect(() => {
+    const confirmAndClose = () => {
+      if (
+        useDocumentStore.getState().dirty &&
+        useDocumentStore.getState().path
+      ) {
+        if (window.confirm("有未保存的修改，关闭前保存吗？")) {
+          void (async () => {
+            await save();
+            await platform.closeWindow();
+          })();
+          return;
+        }
+        if (!window.confirm("放弃修改并直接关闭吗？")) return;
+      }
+      void platform.closeWindow();
+    };
+
+    const unsubscribe = platform.onAppEvent((event) => {
+      if (event.type === "close-requested") {
+        confirmAndClose();
+        return;
+      }
+      if (event.type === "open-paths") {
+        const first = event.paths[0];
+        if (first) void openPath(first);
+        return;
+      }
+      const actions = appActionsRef.current;
+      switch (event.action) {
+        case "open-file":
+          actions.openFile();
+          break;
+        case "open-folder":
+          actions.openFolder();
+          break;
+        case "save":
+          actions.save();
+          break;
+        case "export-html":
+          actions.exportHtml();
+          break;
+        case "print":
+          actions.printDocument();
+          break;
+        case "toggle-mode":
+          actions.toggleMode();
+          break;
+        default:
+          break;
+      }
+    });
+    return unsubscribe;
+    // 动作经 ref/noop 引入避免重建订阅；事件订阅只在挂载时建立一次。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function showNotice(message: string): void {
     setNotice(message);
     if (noticeTimer.current !== null) {
@@ -974,6 +1045,16 @@ export default function App() {
   ]);
 
   const ThemeIcon = THEME_ICON[theme];
+
+  // 原生菜单等应用事件调用最新动作（ref 每次渲染刷新）。
+  appActionsRef.current = {
+    "open-file": () => void openFile(),
+    "open-folder": () => void openFolder(),
+    save: () => void save(),
+    "export-html": () => void exportHtml(),
+    print: () => void printDocument(),
+    "toggle-mode": () => void toggleMode(),
+  };
 
   return (
     <div className="app-shell">

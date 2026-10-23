@@ -10,3 +10,15 @@ pub fn print_window(window: WebviewWindow) -> Result<(), CommandError> {
         .print()
         .map_err(|error| CommandError::Io(error.to_string()))
 }
+
+/// 前端确认关闭后调用：置 force_close 并真正关窗。
+#[tauri::command]
+pub fn close_window(
+    window: WebviewWindow,
+    state: tauri::State<crate::state::AppState>,
+) -> Result<(), CommandError> {
+    state.set_force_close(true);
+    window
+        .close()
+        .map_err(|error| CommandError::Io(error.to_string()))
+}

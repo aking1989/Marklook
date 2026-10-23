@@ -113,6 +113,29 @@ export const tauriPlatform: Platform = {
 
   unwatchPaths: (watchId) => call<void>("unwatch_paths", { watchId }),
 
+  takePendingOpen: () => call<string[]>("take_pending_open"),
+
+  onAppEvent(callback) {
+    const unlisten = Promise.all([
+      listen<string>("app://menu", (event) =>
+        callback({ type: "menu", action: event.payload }),
+      ),
+      listen("app://close-requested", () =>
+        callback({ type: "close-requested" }),
+      ),
+      listen<string[]>("app://open-paths", (event) =>
+        callback({ type: "open-paths", paths: event.payload }),
+      ),
+    ]);
+    return () => {
+      void unlisten.then((handlers) => {
+        for (const handler of handlers) handler();
+      });
+    };
+  },
+
+  closeWindow: () => call<void>("close_window"),
+
   onFsChange(callback) {
     const promise = listen<FsChangeEvent>("fs://change", (event) =>
       callback(event.payload),

@@ -1,4 +1,11 @@
-use std::{collections::HashSet, path::PathBuf, sync::RwLock};
+use std::{
+    collections::HashSet,
+    path::PathBuf,
+    sync::{
+        RwLock,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use crate::error::CommandError;
 
@@ -7,6 +14,8 @@ pub struct AppState {
     allowed_roots: RwLock<HashSet<PathBuf>>,
     allowed_files: RwLock<HashSet<PathBuf>>,
     pending_open: RwLock<Vec<PathBuf>>,
+    /// 用户已在前端确认关闭：放行下一次 CloseRequested。
+    force_close: AtomicBool,
 }
 
 impl AppState {
@@ -35,6 +44,14 @@ impl AppState {
                 pending.push(path);
             }
         }
+    }
+
+    pub fn set_force_close(&self, value: bool) {
+        self.force_close.store(value, Ordering::SeqCst);
+    }
+
+    pub fn take_force_close(&self) -> bool {
+        self.force_close.swap(false, Ordering::SeqCst)
     }
 
     pub fn take_pending_open(&self) -> Vec<String> {

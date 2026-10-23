@@ -60,6 +60,11 @@ export interface DraftRecord {
 
 export type Unsubscribe = () => void;
 
+export type AppEvent =
+  | { type: "menu"; action: string }
+  | { type: "close-requested" }
+  | { type: "open-paths"; paths: string[] };
+
 export interface WatchOptions {
   recursive: boolean;
   markdownOnly: boolean;
@@ -99,6 +104,12 @@ export interface Platform {
   watchPaths(paths: string[], options: WatchOptions): Promise<number>;
   unwatchPaths(watchId: number): Promise<void>;
   onFsChange(callback: (event: FsChangeEvent) => void): Unsubscribe;
+  /** 文件关联/单实例转交的待打开路径（取出后清空）。 */
+  takePendingOpen(): Promise<string[]>;
+  /** 原生菜单、关闭请求、单实例打开等应用级事件。 */
+  onAppEvent(callback: (event: AppEvent) => void): Unsubscribe;
+  /** 前端确认关闭后真正关窗。 */
+  closeWindow(): Promise<void>;
   saveDraft(
     path: string,
     content: string,
