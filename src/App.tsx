@@ -39,6 +39,13 @@ function fileName(path: string | null): string {
   return path.replace(/\\/g, "/").split("/").pop() ?? path;
 }
 
+function dirnameOf(path: string): string | null {
+  const normalized = path.replace(/\\/g, "/");
+  const index = normalized.lastIndexOf("/");
+  if (index <= 0) return index === 0 ? "/" : null;
+  return normalized.slice(0, index);
+}
+
 function statusLabel(status: DocStatus, dirty: boolean): string {
   switch (status) {
     case "loading":
@@ -133,10 +140,30 @@ export default function App() {
   const editorRef = useRef<EditorHandle>(null);
   const [editorMounted, setEditorMounted] = useState(false);
   const [activeLine, setActiveLine] = useState(1);
+  const [conflict, setConflict] = useState<{
+    diskContent: string;
+    diskMtimeMs: number;
+  } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<number | null>(null);
+  const recentlyWrittenAt = useRef(0);
+  const docWatchId = useRef<number | null>(null);
+  const autoSaveTimer = useRef<number | null>(null);
   const outlineListRef = useRef<HTMLUListElement>(null);
   const pendingEditLine = useRef(1);
   const pendingReadLine = useRef(1);
   const syncTimer = useRef<number | null>(null);
+
+  function showNotice(message: string): void {
+    setNotice(message);
+    if (noticeTimer.current !== null) {
+      window.clearTimeout(noticeTimer.current);
+    }
+    noticeTimer.current = window.setTimeout(() => {
+      setNotice(null);
+      noticeTimer.current = null;
+    }, 3000);
+  }
 
   useEffect(() => {
     const root = document.documentElement;
@@ -250,10 +277,16 @@ export default function App() {
           options: { allowRemoteImages, theme },
         });
         pendingReadLine.current = options?.gotoLine ?? 1;
+        setConflict(null);
+        if (autoSaveTimer.current !== null) {
+          window.clearTimeout(autoSaveTimer.current);
+          autoSaveTimer.current = null;
+        }
         setLoaded(doc, rendered);
         editorRef.current?.setValue(doc.content);
         revealPath(target);
         pushFile(target);
+        restartDocWatch(doc.path);
       } catch (caught) {
         setError(errorMessage(caught));
       }
@@ -270,6 +303,25 @@ export default function App() {
       theme,
     ],
   );
+
+  /** 单文档监听：监听父目录（非递归）按文件名过滤，捕获 rename 式保存。 */
+  async function restartDocWatch(docPath: string): Promise<void> {
+    if (docWatchId.current !== null) {
+      await platform.unwatchPaths(docWatchId.current);
+      docWatchId.current = null;
+    }
+    const parent = dirnameOf(docPath);
+    if (!parent) return;
+    try {
+      docWatchId.current = await platform.watchPaths([parent], {
+        recursive: false,
+        markdownOnly: false,
+        targetFile: docPath.replace(/\\/g, "/").split("/").pop(),
+      });
+    } catch {
+      // 监听不可用（网络盘等）：降级为工作区刷新与焦点刷新。
+    }
+  }
 
   /** 搜索面板的索引数据源：带正文扫描当前工作区。 */
   const requestSearchIndex = useCallback(async () => {
@@ -302,10 +354,26 @@ export default function App() {
     }
   }, [openWorkspace, pushWorkspace, setError]);
 
-  // 外部文件变更 → 500ms 去抖刷新工作区树（当前文档的处理见文档变更检测）。
+  // 外部文件变更路由：当前文档 → 冲突检测；其余 → 500ms 去抖刷新工作区树。
   const workspaceRefreshTimer = useRef<number | null>(null);
+  const currentPathRef = useRef<string | null>(path);
+  currentPathRef.current = path;
   useEffect(() => {
-    const unsubscribe = platform.onFsChange(() => {
+    const unsubscribe = platform.onFsChange((event) => {
+      const current = currentPathRef.current;
+      const touchesCurrent =
+        current !== null &&
+        event.paths.some(
+          (changed) =>
+            changed === current ||
+            changed.endsWith(`/${current.split("/").pop()}`),
+        );
+
+      if (touchesCurrent) {
+        externalHandlerRef.current();
+        return;
+      }
+
       if (workspaceRefreshTimer.current !== null) return;
       workspaceRefreshTimer.current = window.setTimeout(() => {
         workspaceRefreshTimer.current = null;
@@ -340,7 +408,7 @@ export default function App() {
   }, [dirty, path, openPath, setError]);
 
   const save = useCallback(async () => {
-    if (!path) return;
+    if (!path || conflict) return;
 
     const nextContent = editorMounted
       ? (editorRef.current?.getValue() ?? content)
@@ -358,12 +426,27 @@ export default function App() {
         eol,
         bom,
       });
+      recentlyWrittenAt.current = Date.now();
       setSaved(nextContent, result.mtimeMs);
     } catch (caught) {
+      // 保存撞上外部修改：读磁盘内容进入冲突面板，而不是覆盖提示。
+      if (caught instanceof PlatformError && caught.code === "CONFLICT") {
+        try {
+          const disk = await platform.readDocument(path);
+          setConflict({
+            diskContent: disk.content,
+            diskMtimeMs: disk.mtimeMs,
+          });
+          return;
+        } catch {
+          // 读取失败则走通用错误提示。
+        }
+      }
       setError(errorMessage(caught));
     }
   }, [
     bom,
+    conflict,
     content,
     editorMounted,
     eol,
@@ -375,6 +458,118 @@ export default function App() {
     setSaved,
     setSaving,
   ]);
+
+  /**
+   * 外部变更检测（详细设计 §11.2/11.3）：
+   * 本应用 2s 内写入忽略 → mtime 未变忽略 → 内容一致静默同步 baseline →
+   * 干净时静默重载（保持滚动位置）→ 脏时弹冲突面板。
+   */
+  const externalHandlerRef = useRef<() => void>(() => undefined);
+  const handleExternalChange = useCallback(async () => {
+    if (!path || conflict) return;
+    if (Date.now() - recentlyWrittenAt.current < 2000) return;
+
+    try {
+      const disk = await platform.readDocument(path);
+      if (disk.mtimeMs === mtimeMs) return;
+
+      const current = editorMounted
+        ? (editorRef.current?.getValue() ?? content)
+        : content;
+
+      if (current === disk.content) {
+        setSaved(current, disk.mtimeMs);
+        showNotice("文件已在其他程序中修改（内容一致，已同步）");
+        return;
+      }
+
+      if (!dirty) {
+        const topLine = readerRef.current?.getTopLine() ?? 1;
+        const rendered = await renderMarkdown({
+          source: disk.content,
+          docPath: disk.path,
+          resolveAsset: platform.toAssetUrl,
+          options: { allowRemoteImages, theme },
+        });
+        pendingReadLine.current = topLine;
+        setLoaded(disk, rendered);
+        editorRef.current?.setValue(disk.content);
+        showNotice("文件已更新");
+        return;
+      }
+
+      setConflict({
+        diskContent: disk.content,
+        diskMtimeMs: disk.mtimeMs,
+      });
+    } catch {
+      // 读取失败：保持现状，等下一次事件。
+    }
+  }, [
+    allowRemoteImages,
+    conflict,
+    content,
+    dirty,
+    editorMounted,
+    mtimeMs,
+    path,
+    setLoaded,
+    setSaved,
+    theme,
+  ]);
+  externalHandlerRef.current = () => void handleExternalChange();
+
+  // 冲突解决：用当前内容强制覆盖磁盘。
+  const resolveConflictOverwrite = useCallback(async () => {
+    if (!path || !conflict) return;
+    const current = editorMounted
+      ? (editorRef.current?.getValue() ?? content)
+      : content;
+    try {
+      const result = await platform.writeDocument(path, current, {
+        expectedMtimeMs: conflict.diskMtimeMs,
+        force: true,
+        eol,
+        bom,
+      });
+      recentlyWrittenAt.current = Date.now();
+      setSaved(current, result.mtimeMs);
+      setConflict(null);
+      showNotice("已用当前内容覆盖磁盘文件");
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
+  }, [bom, conflict, content, eol, editorMounted, path, setError, setSaved]);
+
+  // 冲突解决：放弃本地修改，加载磁盘版本。
+  const resolveConflictLoadDisk = useCallback(async () => {
+    if (!path || !conflict) return;
+    try {
+      const rendered = await renderMarkdown({
+        source: conflict.diskContent,
+        docPath: path,
+        resolveAsset: platform.toAssetUrl,
+        options: { allowRemoteImages, theme },
+      });
+      setLoaded(
+        {
+          path,
+          content: conflict.diskContent,
+          mtimeMs: conflict.diskMtimeMs,
+          size: conflict.diskContent.length,
+          eol,
+          bom,
+          encoding: "utf-8",
+        },
+        rendered,
+      );
+      editorRef.current?.setValue(conflict.diskContent);
+      setConflict(null);
+      showNotice("已加载磁盘版本（本地修改已放弃）");
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
+  }, [allowRemoteImages, bom, conflict, eol, path, setError, setLoaded, theme]);
 
   const toggleMode = useCallback(async () => {
     if (!path || !render) return;
@@ -471,6 +666,10 @@ export default function App() {
     theme,
   ]);
 
+  // 自动保存经 ref 调用最新 save，避免 onChange 回调随保存状态重建。
+  const saveRef = useRef(save);
+  saveRef.current = save;
+
   const handleEditorChange = useCallback(() => {
     // 输入时只更新脏标记，避免每次按键都进入 React 状态。
     markDirty();
@@ -484,12 +683,30 @@ export default function App() {
       }
       syncTimer.current = null;
     }, 300);
+
+    // 自动保存：停止输入 800ms 后触发（冲突面板打开时暂停）。
+    if (autoSaveTimer.current !== null) {
+      window.clearTimeout(autoSaveTimer.current);
+    }
+    autoSaveTimer.current = window.setTimeout(() => {
+      autoSaveTimer.current = null;
+      void saveRef.current();
+    }, 800);
   }, [markDirty, setContent]);
 
   useEffect(
     () => () => {
       if (syncTimer.current !== null) {
         window.clearTimeout(syncTimer.current);
+      }
+      if (autoSaveTimer.current !== null) {
+        window.clearTimeout(autoSaveTimer.current);
+      }
+      if (noticeTimer.current !== null) {
+        window.clearTimeout(noticeTimer.current);
+      }
+      if (docWatchId.current !== null) {
+        void platform.unwatchPaths(docWatchId.current);
       }
     },
     [],
@@ -843,6 +1060,41 @@ export default function App() {
             <div className="error-banner" role="alert">
               <span>{error}</span>
               <button onClick={clearError}>关闭</button>
+            </div>
+          )}
+
+          {conflict && (
+            <div className="conflict-banner" role="alert">
+              <span className="conflict-text">
+                文件在其他程序中被修改，当前有未保存的更改。
+              </span>
+              <div className="conflict-actions">
+                <button
+                  className="primary-btn slim"
+                  onClick={() => void resolveConflictOverwrite()}
+                >
+                  用我的版本覆盖
+                </button>
+                <button
+                  className="text-btn"
+                  onClick={() => void resolveConflictLoadDisk()}
+                >
+                  加载磁盘版本
+                </button>
+                <button
+                  className="text-btn"
+                  onClick={() => setConflict(null)}
+                  title="保持现状，稍后手动处理"
+                >
+                  忽略
+                </button>
+              </div>
+            </div>
+          )}
+
+          {notice && !error && !conflict && (
+            <div className="notice-banner" role="status">
+              {notice}
             </div>
           )}
 

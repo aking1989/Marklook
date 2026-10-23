@@ -321,14 +321,25 @@ export const mockPlatform: Platform = {
   },
 };
 
-/** 仅用于开发与 E2E：模拟外部程序修改文件，触发 fs://change。 */
-export function mockExternalChange(path: string): void {
+/** 仅用于开发与 E2E：模拟外部程序修改文件（可携带新内容），触发 fs://change。 */
+export function mockExternalChange(path: string, newContent?: string): void {
   const file = files.get(path);
   if (file) {
+    if (newContent !== undefined) {
+      file.content = newContent;
+    }
     file.mtimeMs = now();
   }
   const event: FsChangeEvent = { watchId: 1, paths: [path] };
   for (const listener of fsListeners) {
     listener(event);
   }
+}
+
+// 开发与 E2E 钩子：浏览器内模拟外部修改（触发 fs://change 与 mtime 变化）。
+if (typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__marklookMock = {
+    externalChange: mockExternalChange,
+    listenerCount: () => fsListeners.size,
+  };
 }

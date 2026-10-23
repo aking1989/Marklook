@@ -633,3 +633,41 @@
   color: var(--fg-muted);
   font-size: 12px;
 }
+
+/* 冲突面板与通知：绝对定位的编辑器/阅读视图在 DOM 后方，需置顶 */
+.conflict-banner {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--danger, #c0392b);
+  border-radius: 8px;
+  margin: 12px 16px 0;
+  background: color-mix(in srgb, var(--danger, #c0392b) 8%, var(--bg));
+  font-size: 13px;
+}
+
+.conflict-text {
+  color: var(--danger, #c0392b);
+}
+
+.conflict-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.notice-banner {
+  position: relative;
+  z-index: 20;
+  margin: 12px 16px 0;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-hover);
+  color: var(--fg-muted);
+  font-size: 12.5px;
+}
