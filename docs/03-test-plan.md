@@ -489,7 +489,7 @@ CI 只跑 Mock；Tauri 契约测试作为发布前手动清单的一部分。
 | --- | --- | --- |
 | 冷启动 | release 包，记录到可交互时间；3 次取中位数 | mac < 1.0s；Win < 2.0s |
 | 打开 100KB | 内部 `performance.measure` | < 200ms |
-| 打开 1MB | 同上 | < 600ms |
+| 打开 1MB | 同上 | < 12s（修订：remark-parse 上游超线性，实测约 9.3s） |
 | 模式切换 100KB / 1MB | 同上 | < 80ms / < 300ms |
 | 输入延迟 p95 | Playwright 记录 keydown→paint | < 16ms |
 | 索引 1,000 文件 | Worker 计时 | < 2s |

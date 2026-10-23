@@ -45,10 +45,12 @@ interface CollectOptions {
   slugger: GithubSlugger;
   frontmatter: Record<string, unknown>;
   warnings: RenderWarning[];
+  largeFileMode: boolean;
 }
 
 const remarkCollect: Plugin<[CollectOptions], Root> = (options) => (tree) => {
   const { outline, slugger, frontmatter, warnings } = options;
+  let outlineTruncated = false;
 
   // 单次遍历同时完成：frontmatter 解析、大纲收集、顶层块行号锚点。
   visit(tree, (node, _index, parent) => {
@@ -88,6 +90,17 @@ const remarkCollect: Plugin<[CollectOptions], Root> = (options) => (tree) => {
     if (node.type === "heading") {
       const text = toString(node).trim();
       if (!text || !node.position) return;
+      // 大文件：大纲截断，避免数万标题拖慢 slugger 与 UI。
+      if (options.largeFileMode && outline.length >= 500) {
+        if (!outlineTruncated) {
+          outlineTruncated = true;
+          warnings.push({
+            kind: "frontmatter",
+            message: "文档过大，大纲仅显示前 500 个标题",
+          });
+        }
+        return;
+      }
       outline.push({
         id: slugger.slug(text),
         depth: node.depth,
@@ -188,7 +201,13 @@ export async function renderMarkdown(
   }
 
   processor
-    .use(remarkCollect, { outline, slugger, frontmatter, warnings })
+    .use(remarkCollect, {
+      outline,
+      slugger,
+      frontmatter,
+      warnings,
+      largeFileMode: options.largeFileMode,
+    })
     .use(remarkRehype, { allowDangerousHtml: true });
 
   // rehypeRaw 需要 serialize + parse5 重解析，是管线最贵的阶段之一；
@@ -201,7 +220,8 @@ export async function renderMarkdown(
 
   // 数学渲染在 sanitize 之后注入，KaTeX 输出不再过 schema；
   // rehype-katex v7 固定不抛错，单条公式失败渲染为错误文本。
-  if (options.enableMath && capabilities.math) {
+  // 大文件模式跳过 KaTeX：$ 语法保留为原文。
+  if (options.enableMath && !options.largeFileMode && capabilities.math) {
     const { default: rehypeKatex } = await import("rehype-katex");
     processor.use(rehypeKatex);
   }

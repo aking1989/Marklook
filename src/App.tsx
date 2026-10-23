@@ -386,6 +386,10 @@ export default function App() {
         revealPath(target);
         pushFile(target);
         restartDocWatch(doc.path);
+        // 上游解析超线性：大文档提前告知（性能修订记录见开发计划 v0.3）。
+        if (doc.size > 512 * 1024) {
+          showNotice("大文档渲染可能较慢");
+        }
 
         // 草稿比磁盘新且内容不同时提示恢复。
         try {

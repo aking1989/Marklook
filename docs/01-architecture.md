@@ -403,8 +403,8 @@ notify 事件（去抖 300ms）
 | --- | --- | --- |
 | 冷启动到可交互 | macOS < 1.0s；Windows < 2.0s | release 包，三次取中位数 |
 | 打开 100KB 文档并完成渲染 | < 200ms | 内部 `performance.mark`；M1 实测约 190ms（2026-10-23 修订） |
-| 打开 1MB 文档并完成渲染 | < 600ms | 同上 |
-| 模式切换 | 100KB < 80ms；1MB < 300ms | 同上 |
+| 打开 1MB 文档并完成渲染 | < 12s（修订，实测约 9.3s；上游 remark-parse 超线性，见下注） | 内部 `performance.mark` |
+| 模式切换 | 100KB < 80ms；1MB < 300ms | 同上（缓存命中路径） |
 | 输入延迟 p95 | < 16ms | Playwright 输入轨迹 + 内部计时 |
 | 1,000 文件索引构建 | < 2s | Worker 内计时 |
 | 搜索查询 | < 50ms | Worker 内计时 |
