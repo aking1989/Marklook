@@ -22,6 +22,7 @@ interface SettingsState {
   contentWidth: number;
   readingFont: ReadingFont;
   allowRemoteImages: boolean;
+  autoSave: boolean;
   setTheme: (theme: Theme) => void;
   cycleTheme: () => void;
   setFontSize: (size: number) => void;
@@ -30,6 +31,7 @@ interface SettingsState {
   setContentWidth: (width: number) => void;
   setReadingFont: (font: ReadingFont) => void;
   setAllowRemoteImages: (allowed: boolean) => void;
+  setAutoSave: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -41,6 +43,7 @@ export const useSettingsStore = create<SettingsState>()(
       contentWidth: 760,
       readingFont: "serif",
       allowRemoteImages: false,
+      autoSave: true,
 
       setTheme: (theme) => set({ theme }),
 
@@ -73,6 +76,8 @@ export const useSettingsStore = create<SettingsState>()(
       setReadingFont: (readingFont) => set({ readingFont }),
 
       setAllowRemoteImages: (allowRemoteImages) => set({ allowRemoteImages }),
+
+      setAutoSave: (autoSave) => set({ autoSave }),
     }),
     { name: "marklook.settings" },
   ),

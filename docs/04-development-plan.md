@@ -7,7 +7,7 @@
 | 状态 | 待评审 |
 | 上游文档 | [概要设计](./01-architecture.md) · [详细设计](./02-detailed-design.md) · [测试方案](./03-test-plan.md) |
 
-> **进度（2026-10-23）**：**M1 完成，M2 待开工**。M0：主链路（打开 → 阅读 → 源码 → 保存）与 PDF 打印（系统打印路线，不启用 Typst 备选）实机验证；EOL/BOM 字节级往返固化为 Rust 测试。M1 交付完整渲染管线（frontmatter/KaTeX/Shiki 双主题/Mermaid 占位/sanitize/相对图片 mdasset:// /远程图片零网络占位/表格滚动容器）、滚动同步缓存化、大纲跟随高亮、排版设置持久化、代码复制与图片灯箱；渲染结果 LRU 缓存 + "无内嵌 HTML 跳过 rehypeRaw" 优化。质量门禁：Vitest 53 项（含 100KB 基准，实测约 190ms）、Playwright 7 项、cargo fmt/clippy/test 21 项，本地全绿；CI 覆盖前端全门禁 + macOS/Windows Rust 矩阵（首跑结果需在 GitHub Actions 页面人工查看，开发机无私有仓库访问凭据）。
+> **进度（2026-10-23）**：**M2 完成，M3 待开工**。M0：主链路与 PDF 打印（系统打印路线）验证；EOL/BOM 字节级往返固化为 Rust 测试。M1：完整渲染管线（frontmatter/KaTeX/Shiki 双主题/Mermaid/sanitize/mdasset:// 资源协议/远程图片零网络）、滚动同步缓存化、大纲跟随、排版设置持久化；100KB 渲染实测约 190ms（预算修订为 200ms，见变更记录 v0.2）。M2：工作区扫描（ignore crate，gitignore/忽略目录/条目上限）、文件树（数字感知排序、revealPath 定位）、最近记录、跨文件搜索（MiniSearch Worker + Intl.Segmenter 二元组分词；实测 1,000 文件索引 141ms、查询 3ms，远优于 2s/50ms 预算）、文件监听（notify 300ms 去抖，单文档父目录监听捕获 rename 保存）、外部变更检测与冲突面板（覆盖/加载磁盘/忽略，静默重载保持滚动位置）、自动保存（800ms 去抖，可在设置关闭）、崩溃草稿（2s 去抖落盘、打开时恢复提示、7 天清理）。质量门禁：Vitest 67 项、Playwright 17 项、cargo fmt/clippy/test 38 项，本地全绿；CI 覆盖前端全门禁 + macOS/Windows Rust 矩阵（首跑结果需在 GitHub Actions 页面人工查看，开发机无私有仓库访问凭据）。**下一步：M3 源码编辑（§3 M3）。**
 
 ---
 

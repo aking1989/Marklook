@@ -2,7 +2,7 @@
 
 跨 macOS / Windows 的本地 Markdown 阅读编辑器。以阅读体验为主，`Cmd/Ctrl+E` 在**阅读视图**与**源码编辑模式**之间切换，交互参照 Typora 的阅读视图 / 源码模式，但不做所见即所得的行内渲染。
 
-> 当前状态：**M1（阅读体验）已完成，M2（工作区）待开工**。M0 主链路（打开 → 阅读 → 源码 → 保存 → 打印/PDF）与 EOL/BOM 字节级往返验证完成。M1 交付：完整渲染管线（GFM、frontmatter、KaTeX、Shiki 双主题高亮、Mermaid 占位渲染、sanitize、相对图片 mdasset:// 协议、远程图片零网络占位）、行号锚点滚动同步（LRU 缓存 + 尺寸失效）、大纲跟随高亮、排版设置（字号/行高/栏宽/字体/主题）持久化、代码块复制、图片灯箱。质量门禁：Vitest 53 项（含 100KB 渲染基准，实测约 190ms）、Playwright 7 项 E2E、cargo fmt/clippy/test 21 项，本地全绿。
+> 当前状态：**M2（工作区）已完成，M3（源码编辑）待开工**。M0：主链路与 PDF 打印验证。M1：完整渲染管线（frontmatter/KaTeX/Shiki/Mermaid/资源协议）、滚动同步与大纲跟随、排版设置。M2：工作区（文件夹扫描/文件树/最近记录）、跨文件搜索（MiniSearch Worker + 中文二元组分词，1,000 文件索引 141ms、查询 3ms）、文件监听（notify 去抖）、外部变更检测与冲突面板（覆盖/加载磁盘/忽略）、自动保存（800ms，可关）、崩溃草稿恢复（2s 去抖落盘，打开时提示恢复）。质量门禁：Vitest 67 项、Playwright 17 项 E2E、cargo fmt/clippy/test 38 项，本地全绿。
 
 ## 快速开始
 

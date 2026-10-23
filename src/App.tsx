@@ -121,6 +121,7 @@ export default function App() {
     setContentWidth,
     setReadingFont,
     setAllowRemoteImages,
+    autoSave,
   } = useSettingsStore();
 
   const {
@@ -144,15 +145,24 @@ export default function App() {
     diskContent: string;
     diskMtimeMs: number;
   } | null>(null);
+  const [draftPrompt, setDraftPrompt] = useState<{
+    content: string;
+  } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimer = useRef<number | null>(null);
   const recentlyWrittenAt = useRef(0);
   const docWatchId = useRef<number | null>(null);
   const autoSaveTimer = useRef<number | null>(null);
+  const draftTimer = useRef<number | null>(null);
   const outlineListRef = useRef<HTMLUListElement>(null);
   const pendingEditLine = useRef(1);
   const pendingReadLine = useRef(1);
   const syncTimer = useRef<number | null>(null);
+
+  // 启动时清理 7 天前的旧草稿。
+  useEffect(() => {
+    void platform.cleanupDrafts().catch(() => undefined);
+  }, []);
 
   function showNotice(message: string): void {
     setNotice(message);
@@ -278,15 +288,34 @@ export default function App() {
         });
         pendingReadLine.current = options?.gotoLine ?? 1;
         setConflict(null);
+        setDraftPrompt(null);
         if (autoSaveTimer.current !== null) {
           window.clearTimeout(autoSaveTimer.current);
           autoSaveTimer.current = null;
+        }
+        if (draftTimer.current !== null) {
+          window.clearTimeout(draftTimer.current);
+          draftTimer.current = null;
         }
         setLoaded(doc, rendered);
         editorRef.current?.setValue(doc.content);
         revealPath(target);
         pushFile(target);
         restartDocWatch(doc.path);
+
+        // 草稿比磁盘新且内容不同时提示恢复。
+        try {
+          const draft = await platform.loadDraft(target);
+          if (
+            draft &&
+            draft.savedAt > doc.mtimeMs &&
+            draft.content !== doc.content
+          ) {
+            setDraftPrompt({ content: draft.content });
+          }
+        } catch {
+          // 草稿读取失败不影响打开。
+        }
       } catch (caught) {
         setError(errorMessage(caught));
       }
@@ -428,6 +457,7 @@ export default function App() {
       });
       recentlyWrittenAt.current = Date.now();
       setSaved(nextContent, result.mtimeMs);
+      void platform.clearDraft(path).catch(() => undefined);
     } catch (caught) {
       // 保存撞上外部修改：读磁盘内容进入冲突面板，而不是覆盖提示。
       if (caught instanceof PlatformError && caught.code === "CONFLICT") {
@@ -465,6 +495,8 @@ export default function App() {
    * 干净时静默重载（保持滚动位置）→ 脏时弹冲突面板。
    */
   const externalHandlerRef = useRef<() => void>(() => undefined);
+  const pathRef = useRef<string | null>(path);
+  pathRef.current = path;
   const handleExternalChange = useCallback(async () => {
     if (!path || conflict) return;
     if (Date.now() - recentlyWrittenAt.current < 2000) return;
@@ -535,11 +567,50 @@ export default function App() {
       recentlyWrittenAt.current = Date.now();
       setSaved(current, result.mtimeMs);
       setConflict(null);
+      void platform.clearDraft(path).catch(() => undefined);
       showNotice("已用当前内容覆盖磁盘文件");
     } catch (caught) {
       setError(errorMessage(caught));
     }
   }, [bom, conflict, content, eol, editorMounted, path, setError, setSaved]);
+
+  // 草稿恢复：用草稿内容替换当前文档并进入脏状态。
+  const restoreDraft = useCallback(async () => {
+    if (!path || !draftPrompt) return;
+    try {
+      const rendered = await renderMarkdown({
+        source: draftPrompt.content,
+        docPath: path,
+        resolveAsset: platform.toAssetUrl,
+        options: { allowRemoteImages, theme },
+      });
+      setContent(draftPrompt.content);
+      setDirty(true);
+      setRender(rendered);
+      editorRef.current?.setValue(draftPrompt.content);
+      setDraftPrompt(null);
+      showNotice("已恢复未保存的草稿");
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
+  }, [
+    allowRemoteImages,
+    draftPrompt,
+    path,
+    setContent,
+    setDirty,
+    setError,
+    setRender,
+    theme,
+  ]);
+
+  // 丢弃草稿：删除并关闭提示。
+  const discardDraft = useCallback(() => {
+    if (path) {
+      void platform.clearDraft(path).catch(() => undefined);
+    }
+    setDraftPrompt(null);
+  }, [path]);
 
   // 冲突解决：放弃本地修改，加载磁盘版本。
   const resolveConflictLoadDisk = useCallback(async () => {
@@ -670,6 +741,17 @@ export default function App() {
   const saveRef = useRef(save);
   saveRef.current = save;
 
+  const writeDraft = useCallback(() => {
+    const docPath = pathRef.current;
+    if (!docPath) return;
+    const current = editorMounted
+      ? (editorRef.current?.getValue() ?? content)
+      : content;
+    void platform
+      .saveDraft(docPath, current, mtimeMs ?? 0)
+      .catch(() => undefined);
+  }, [content, editorMounted, mtimeMs]);
+
   const handleEditorChange = useCallback(() => {
     // 输入时只更新脏标记，避免每次按键都进入 React 状态。
     markDirty();
@@ -684,15 +766,26 @@ export default function App() {
       syncTimer.current = null;
     }, 300);
 
-    // 自动保存：停止输入 800ms 后触发（冲突面板打开时暂停）。
-    if (autoSaveTimer.current !== null) {
-      window.clearTimeout(autoSaveTimer.current);
+    // 自动保存：停止输入 800ms 后触发（设置可关；冲突面板打开时暂停）。
+    if (autoSave) {
+      if (autoSaveTimer.current !== null) {
+        window.clearTimeout(autoSaveTimer.current);
+      }
+      autoSaveTimer.current = window.setTimeout(() => {
+        autoSaveTimer.current = null;
+        void saveRef.current();
+      }, 800);
     }
-    autoSaveTimer.current = window.setTimeout(() => {
-      autoSaveTimer.current = null;
-      void saveRef.current();
-    }, 800);
-  }, [markDirty, setContent]);
+
+    // 草稿：每 2s 去抖落盘（崩溃恢复兜底）。
+    if (draftTimer.current !== null) {
+      window.clearTimeout(draftTimer.current);
+    }
+    draftTimer.current = window.setTimeout(() => {
+      draftTimer.current = null;
+      writeDraft();
+    }, 2000);
+  }, [autoSave, markDirty, setContent, writeDraft]);
 
   useEffect(
     () => () => {
@@ -704,6 +797,9 @@ export default function App() {
       }
       if (noticeTimer.current !== null) {
         window.clearTimeout(noticeTimer.current);
+      }
+      if (draftTimer.current !== null) {
+        window.clearTimeout(draftTimer.current);
       }
       if (docWatchId.current !== null) {
         void platform.unwatchPaths(docWatchId.current);
@@ -1087,6 +1183,25 @@ export default function App() {
                   title="保持现状，稍后手动处理"
                 >
                   忽略
+                </button>
+              </div>
+            </div>
+          )}
+
+          {draftPrompt && !conflict && (
+            <div className="conflict-banner draft-banner" role="alert">
+              <span className="conflict-text">
+                发现未保存的草稿（比磁盘文件新），要恢复吗？
+              </span>
+              <div className="conflict-actions">
+                <button
+                  className="primary-btn slim"
+                  onClick={() => void restoreDraft()}
+                >
+                  恢复草稿
+                </button>
+                <button className="text-btn" onClick={discardDraft}>
+                  丢弃
                 </button>
               </div>
             </div>
