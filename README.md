@@ -2,7 +2,7 @@
 
 跨 macOS / Windows 的本地 Markdown 阅读编辑器。以阅读体验为主，`Cmd/Ctrl+E` 在**阅读视图**与**源码编辑模式**之间切换，交互参照 Typora 的阅读视图 / 源码模式，但不做所见即所得的行内渲染。
 
-> 当前状态：**M0 已完成，M1（阅读体验）进行中**。Tauri 应用可启动，已跑通打开 → 阅读 → `Cmd/Ctrl+E` 源码 → 保存的主链路；系统打印 / PDF 已通过 macOS 实机验证（`Cmd/Ctrl+P`）；EOL/BOM 字节级往返已由 Rust 测试固化（读 → 改 → 写 → 再读，CRLF+BOM / LF / 孤立 CR 全覆盖）；本地门禁（lint、format、单元测试、E2E、cargo fmt/clippy/test）全部通过，CI 已覆盖前端全门禁与 macOS/Windows Rust 检查。CI 首跑结果需在 GitHub Actions 页面确认（本机无 gh/token，仅完成静态审查）。
+> 当前状态：**M1（阅读体验）已完成，M2（工作区）待开工**。M0 主链路（打开 → 阅读 → 源码 → 保存 → 打印/PDF）与 EOL/BOM 字节级往返验证完成。M1 交付：完整渲染管线（GFM、frontmatter、KaTeX、Shiki 双主题高亮、Mermaid 占位渲染、sanitize、相对图片 mdasset:// 协议、远程图片零网络占位）、行号锚点滚动同步（LRU 缓存 + 尺寸失效）、大纲跟随高亮、排版设置（字号/行高/栏宽/字体/主题）持久化、代码块复制、图片灯箱。质量门禁：Vitest 53 项（含 100KB 渲染基准，实测约 190ms）、Playwright 7 项 E2E、cargo fmt/clippy/test 21 项，本地全绿。
 
 ## 快速开始
 

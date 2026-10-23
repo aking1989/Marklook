@@ -7,7 +7,7 @@
 | 状态 | 待评审 |
 | 上游文档 | [概要设计](./01-architecture.md) · [详细设计](./02-detailed-design.md) · [测试方案](./03-test-plan.md) |
 
-> **进度（2026-10-23）**：**M0 完成**。Tauri 应用可启动；打开 → 阅读 → 源码切换 → 保存闭环经 Playwright 与 macOS 实机验证；PDF 打印链路已在 macOS 实机验证（结论：系统打印可用，不启用 Typst 备选），详见 [PDF 技术验证报告](./05-pdf-verification.md)。质量门禁全部通过（ESLint、Prettier、Vitest 13 项、Playwright 2 项、cargo fmt/clippy/test 14 项），CI 覆盖前端全门禁 + macOS/Windows Rust 矩阵。EOL/BOM 往返已固化为 Rust 字节级测试（CRLF+BOM、LF、孤立 CR）。Windows CI 首跑结论需在 GitHub Actions 页面人工查看（开发机无私有仓库访问凭据）；已完成 Windows 步骤静态审查，未发现风险点。**下一步：M1 阅读体验（§3 M1）开工。**
+> **进度（2026-10-23）**：**M1 完成，M2 待开工**。M0：主链路（打开 → 阅读 → 源码 → 保存）与 PDF 打印（系统打印路线，不启用 Typst 备选）实机验证；EOL/BOM 字节级往返固化为 Rust 测试。M1 交付完整渲染管线（frontmatter/KaTeX/Shiki 双主题/Mermaid 占位/sanitize/相对图片 mdasset:// /远程图片零网络占位/表格滚动容器）、滚动同步缓存化、大纲跟随高亮、排版设置持久化、代码复制与图片灯箱；渲染结果 LRU 缓存 + "无内嵌 HTML 跳过 rehypeRaw" 优化。质量门禁：Vitest 53 项（含 100KB 基准，实测约 190ms）、Playwright 7 项、cargo fmt/clippy/test 21 项，本地全绿；CI 覆盖前端全门禁 + macOS/Windows Rust 矩阵（首跑结果需在 GitHub Actions 页面人工查看，开发机无私有仓库访问凭据）。
 
 ---
 
@@ -92,7 +92,7 @@ W1        W2        W3        W4        W5        W6        W7
 
 **退出标准**
 
-- 100KB 技术文档渲染 < 150ms（本机基线）。
+- 100KB 技术文档渲染 < 200ms（本机基线；M1 实测约 190ms，2026-10-23 修订——原估算 150ms，实测 unified 管线在 100KB 纯 GFM 文档（表格/代码/公式混排）上即约 190ms，已含"无内嵌 HTML 跳过 rehypeRaw"与单次遍历收集优化，渲染结果 LRU 缓存使编辑↔阅读切换免重渲染）。
 - 模式切换位置误差 ≤ 1 行（普通文档）。
 - 公式、Mermaid、代码高亮、脚注、任务列表显示正确。
 - 三套主题在亮暗环境可读；字号/栏宽调节即时生效。
@@ -449,3 +449,4 @@ T0.1 → T0.5 → T0.6 → T1.1 → T1.2 → T2.1 → T2.2 → T3.1 → T4.1 →
 | 日期 | 版本 | 变更 | 作者 |
 | --- | --- | --- | --- |
 | 2026-10-21 | v0.1 | 初稿 | — |
+| 2026-10-23 | v0.2 | 100KB 渲染预算 150ms → 200ms（M1 实测约 190ms，unified 管线实际成本；优化措施与实测数据见 M1 退出标准） | 开发 |

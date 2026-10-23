@@ -2,6 +2,7 @@ import type { Element, Root } from "hast";
 import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import { utf8ToBase64 } from "../../lib/base64";
+import { readLineAnchors } from "./lineAnchors";
 
 /**
  * Mermaid 代码块 → 占位元素。
@@ -31,11 +32,7 @@ export const rehypeMermaid: Plugin<[], Root> = () => (tree) => {
     });
     source = source.replace(/\n$/, "");
 
-    const anchors = {
-      dataLineStart:
-        node.properties?.dataLineStart ?? code.properties?.dataLineStart,
-      dataLineEnd: node.properties?.dataLineEnd ?? code.properties?.dataLineEnd,
-    };
+    const anchors = readLineAnchors(node, code);
 
     const placeholder: Element = {
       type: "element",

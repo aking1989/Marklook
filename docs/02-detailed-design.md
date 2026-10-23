@@ -628,16 +628,9 @@ renderMarkdown(input: RenderInput): Promise<RenderResult>
 export interface RenderInput {
   source: string;
   docPath: string | null;
-  vaultRoot: string | null;
-  options: {
-    allowRemoteImages: boolean;
-    enableMath: boolean;
-    enableMermaid: boolean;
-    enableHighlight: boolean;
-    largeFileMode: boolean;
-    forExport: boolean;
-    theme: 'light' | 'dark' | 'sepia';
-  };
+  options?: Partial<RenderOptions>;
+  /** 绝对路径 → 资源 URL（Tauri 下为 mdasset://），由平台层注入，管线保持纯函数。 */
+  resolveAsset?: (absolutePath: string) => string;
 }
 
 export interface OutlineItem {
@@ -666,71 +659,76 @@ export interface RenderResult {
 
 ### 4.3 管线组装
 
-能力探测采用保守扫描（跳过代码围栏内容），避免为不含数学的文档加载 KaTeX：
+能力探测采用保守扫描（跳过代码围栏内容），避免为不含数学的文档加载 KaTeX。以下为 M1 实现要点（与初稿的差异已在实现注记中标注）：
 
 ```ts
-const codeFenceRe = /^(```|~~~)/gm;
-
-function detect(source: string) {
+// src/markdown/detect.ts
+export function detectCapabilities(source: string) {
   const noFences = source.replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, '');
   return {
     math: /\$\$[\s\S]+?\$\$|(^|[^\\$])\$[^$\n]+\$/m.test(noFences),
     mermaid: /^```\s*mermaid\b/m.test(source),
-    code: /^```/m.test(source),
+    code: /^(```|~~~)/m.test(source),
   };
 }
 
+// src/markdown/pipeline.ts（示意，省略缓存与收集细节）
 export async function renderMarkdown(input: RenderInput): Promise<RenderResult> {
-  const detector = detect(input.source);
-  const warnings: RenderWarning[] = [];
+  const options = { ...defaultRenderOptions(), ...input.options };
+  const capabilities = detectCapabilities(input.source);
 
-  let p = unified()
+  // 渲染结果 LRU(8) 缓存：key = docPath + options 快照 + source，命中直接返回。
+
+  const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
-    .use(remarkFrontmatter, ['yaml'])
-    .use(remarkMath)
-    .use(remarkCollect, { warnings });
+    .use(remarkFrontmatter, ['yaml']);
 
-  p = p
-    .use(remarkRehype, { allowDangerousHtml: true })
-    .use(rehypeRaw)
-    .use(rehypeSanitize, schema);
+  if (options.enableMath) processor.use(remarkMath); // 关闭时 $ 保持字面
 
-  if (input.options.enableMath && detector.math) {
+  processor
+    .use(remarkCollect, { outline, slugger, frontmatter, warnings })
+    .use(remarkRehype, { allowDangerousHtml: true });
+
+  // 性能：无 "<" 的文档不可能含内嵌 HTML，跳过 serialize+parse5 重解析。
+  if (input.source.includes('<')) processor.use(rehypeRaw);
+
+  processor.use(rehypeSanitize, sanitizeSchema);
+
+  if (options.enableMath && capabilities.math) {
     const { default: rehypeKatex } = await import('rehype-katex');
-    p = p.use(rehypeKatex, { throwOnError: false, strict: false });
+    processor.use(rehypeKatex); // v7 固定不抛错，无 throwOnError 选项
   }
-  if (input.options.enableHighlight && detector.code && !input.options.largeFileMode) {
-    const { rehypeShikiPlugin } = await import('./plugins/rehypeShiki');
-    p = p.use(rehypeShikiPlugin, { theme: input.options.theme });
+  if (options.enableHighlight && capabilities.code && !options.largeFileMode) {
+    const { rehypeShiki } = await import('./plugins/rehypeShiki');
+    processor.use(rehypeShiki, { warnings }); // 双主题内置，theme 参数只影响输出端
   }
-  if (input.options.enableMermaid && detector.mermaid) {
-    p = p.use(rehypeMermaid);
+  if (options.enableMermaid && capabilities.mermaid) {
+    const { rehypeMermaid } = await import('./plugins/rehypeMermaid');
+    processor.use(rehypeMermaid);
   }
 
-  p = p
+  processor
     .use(rehypeResolveUrls, {
       docPath: input.docPath,
-      allowRemoteImages: input.options.allowRemoteImages,
+      allowRemoteImages: options.allowRemoteImages,
+      resolveAsset: input.resolveAsset, // 平台层注入：Tauri → mdasset://
+      forExport: options.forExport,
     })
     .use(rehypeTableWrap)
-    .use(rehypeStringify, { allowDangerousCharacters: false });
+    .use(rehypeStringify);
 
-  const file = await p.process(input.source);
-  const html = String(file);
-  const collected = file.data.collect as CollectedMeta;
-  return {
-    html,
-    outline: collected.outline,
-    frontmatter: collected.frontmatter,
-    title: resolveTitle(collected, input.docPath),
-    meta: collected.meta,
-    warnings: [...warnings, ...collected.warnings],
-  };
+  const file = await processor.process(input.source);
+  /* ...组装 RenderResult（outline/frontmatter/title/meta/warnings）... */
 }
 ```
 
-> 说明：`file.data` 由 `remarkCollect` 写入；vFile 数据在 rehype 阶段保留。
+> **实现注记（2026-10-23，M1 落地）**
+>
+> - `remarkCollect` 收集结果通过闭包返回，不经 `file.data`（避免 vFile 数据在 rehype 阶段的类型断言）。
+> - `remark-math` v6 的占位 class 是 `language-math`（加 `math-inline`/`math-display`），sanitize schema 已同步放行（§4.5）。
+> - `rehype-katex` v7 无 `throwOnError` 选项，行为固定为单条失败渲染错误文本。
+> - 行号锚点属性在 hast 树中有 camelCase（经 rehypeRaw/parse5）与 kebab-case（直连）两种形态，插件读取时统一兼容（`plugins/lineAnchors.ts`）。
 
 ### 4.4 `remarkCollect`
 
@@ -788,7 +786,8 @@ export const schema: Schema = {
     ],
     span: [
       ...(defaultSchema.attributes?.span ?? []),
-      ['className', 'math', 'math-inline', 'math-display'],
+      // remark-math v6 的占位 class；KaTeX 在 sanitize 之后注入最终结果
+      ['className', 'language-math', 'math', 'math-inline', 'math-display'],
     ],
     input: [['type', 'checkbox'], 'checked', 'disabled'],
     a: [...(defaultSchema.attributes?.a ?? []), 'data-internal-doc', 'data-anchor', 'data-external'],

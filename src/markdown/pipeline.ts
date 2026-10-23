@@ -50,7 +50,21 @@ interface CollectOptions {
 const remarkCollect: Plugin<[CollectOptions], Root> = (options) => (tree) => {
   const { outline, slugger, frontmatter, warnings } = options;
 
-  visit(tree, (node) => {
+  // 单次遍历同时完成：frontmatter 解析、大纲收集、顶层块行号锚点。
+  visit(tree, (node, _index, parent) => {
+    // 顶层块（除 frontmatter）加行号锚点。
+    if (parent?.type === "root" && node.position && node.type !== "yaml") {
+      const withData = node as typeof node & {
+        data?: { hProperties?: Record<string, unknown> };
+      };
+      withData.data ??= {};
+      withData.data.hProperties = {
+        ...withData.data.hProperties,
+        "data-line-start": node.position.start.line,
+        "data-line-end": node.position.end.line,
+      };
+    }
+
     if (node.type === "yaml") {
       try {
         const parsed = parseYaml(String(node.value ?? "")) as unknown;
@@ -68,33 +82,19 @@ const remarkCollect: Plugin<[CollectOptions], Root> = (options) => (tree) => {
           message: "frontmatter YAML 解析失败，已忽略",
         });
       }
+      return;
     }
-  });
 
-  visit(tree, "heading", (node) => {
-    const text = toString(node).trim();
-    if (!text || !node.position) return;
-    outline.push({
-      id: slugger.slug(text),
-      depth: node.depth,
-      text,
-      line: node.position.start.line,
-    });
-  });
-
-  visit(tree, (node, _index, parent) => {
-    if (parent?.type !== "root" || !node.position) return;
-    if (node.type === "yaml") return;
-
-    const withData = node as typeof node & {
-      data?: { hProperties?: Record<string, unknown> };
-    };
-    withData.data ??= {};
-    withData.data.hProperties = {
-      ...withData.data.hProperties,
-      "data-line-start": node.position.start.line,
-      "data-line-end": node.position.end.line,
-    };
+    if (node.type === "heading") {
+      const text = toString(node).trim();
+      if (!text || !node.position) return;
+      outline.push({
+        id: slugger.slug(text),
+        depth: node.depth,
+        text,
+        line: node.position.start.line,
+      });
+    }
   });
 };
 
@@ -138,6 +138,27 @@ function countWords(source: string): {
   };
 }
 
+/** 渲染结果 LRU 缓存（容量 8）：编辑↔阅读来回切换、远程图片策略切换时复用。 */
+const RENDER_CACHE_CAPACITY = 8;
+const renderCache = new Map<string, RenderResult>();
+
+/** 仅用于测试：清空渲染缓存。 */
+export function clearRenderCache(): void {
+  renderCache.clear();
+}
+
+function optionsKey(options: RenderOptions): string {
+  return [
+    options.allowRemoteImages,
+    options.enableMath,
+    options.enableMermaid,
+    options.enableHighlight,
+    options.largeFileMode,
+    options.forExport,
+    options.theme,
+  ].join("|");
+}
+
 export async function renderMarkdown(
   input: RenderInput,
 ): Promise<RenderResult> {
@@ -147,6 +168,14 @@ export async function renderMarkdown(
   const slugger = new GithubSlugger();
   const options = { ...defaultRenderOptions(), ...input.options };
   const capabilities = detectCapabilities(input.source);
+
+  const cacheKey = `${input.docPath ?? ""}\u{0}${optionsKey(options)}\u{0}${input.source}`;
+  const cached = renderCache.get(cacheKey);
+  if (cached) {
+    renderCache.delete(cacheKey);
+    renderCache.set(cacheKey, cached);
+    return cached;
+  }
 
   const processor = unified()
     .use(remarkParse)
@@ -160,9 +189,15 @@ export async function renderMarkdown(
 
   processor
     .use(remarkCollect, { outline, slugger, frontmatter, warnings })
-    .use(remarkRehype, { allowDangerousHtml: true })
-    .use(rehypeRaw)
-    .use(rehypeSanitize, sanitizeSchema);
+    .use(remarkRehype, { allowDangerousHtml: true });
+
+  // rehypeRaw 需要 serialize + parse5 重解析，是管线最贵的阶段之一；
+  // 文档不含 "<" 时不可能有内嵌 HTML，直接跳过（raw 字符串按文本保留）。
+  if (input.source.includes("<")) {
+    processor.use(rehypeRaw);
+  }
+
+  processor.use(rehypeSanitize, sanitizeSchema);
 
   // 数学渲染在 sanitize 之后注入，KaTeX 输出不再过 schema；
   // rehype-katex v7 固定不抛错，单条公式失败渲染为错误文本。
@@ -197,7 +232,7 @@ export async function renderMarkdown(
   const html = String(file);
   const title = resolveTitle(frontmatter, outline, input.docPath);
 
-  return {
+  const result: RenderResult = {
     html,
     outline,
     frontmatter,
@@ -205,4 +240,13 @@ export async function renderMarkdown(
     meta: countWords(input.source),
     warnings,
   };
+
+  if (renderCache.has(cacheKey)) renderCache.delete(cacheKey);
+  renderCache.set(cacheKey, result);
+  if (renderCache.size > RENDER_CACHE_CAPACITY) {
+    const oldest = renderCache.keys().next().value;
+    if (oldest !== undefined) renderCache.delete(oldest);
+  }
+
+  return result;
 }

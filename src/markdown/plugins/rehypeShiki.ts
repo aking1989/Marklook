@@ -2,6 +2,7 @@ import { fromHtml } from "hast-util-from-html";
 import type { Element, Root } from "hast";
 import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
+import { readLineAnchors } from "./lineAnchors";
 import type { RenderWarning } from "../types";
 
 /** 预置语言：覆盖绝大多数技术文档，首屏一次加载。 */
@@ -171,16 +172,9 @@ export const rehypeShiki: Plugin<[RehypeShikiOptions], Root> =
       );
       if (!shikiPre) continue;
 
-      // 行号锚点可能落在 pre 或内层 code 上（remark-rehype 的位置不定），
-      // 两处都查，迁移到 shiki 的 pre，保证 line-map 不受影响。
-      const anchors = {
-        dataLineStart:
-          block.pre.properties?.dataLineStart ??
-          block.code.properties?.dataLineStart,
-        dataLineEnd:
-          block.pre.properties?.dataLineEnd ??
-          block.code.properties?.dataLineEnd,
-      };
+      // 行号锚点可能落在 pre 或内层 code 上，且 key 有 camel/kebab 两种形态
+      //（取决于是否经过 rehypeRaw）；统一读取后迁移到 shiki 的 pre。
+      const anchors = readLineAnchors(block.pre, block.code);
       shikiPre.properties = { ...shikiPre.properties, ...anchors };
 
       block.parent.children[block.index] = shikiPre;
