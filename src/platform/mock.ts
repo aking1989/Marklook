@@ -1,7 +1,12 @@
 import {
   PlatformError,
+  type DraftRecord,
+  type FsChangeEvent,
   type Platform,
   type TextDocument,
+  type VaultEntry,
+  type VaultScan,
+  type WatchOptions,
   type WriteOptions,
   type WriteResult,
 } from "./types";
@@ -12,6 +17,10 @@ interface MockFile {
 }
 
 const SAMPLE_DOCUMENT = [
+  "---",
+  "title: 欢迎使用墨览",
+  "---",
+  "",
   "# 欢迎使用墨览",
   "",
   "**墨览（Marklook）** 是一个以阅读为中心的本地 Markdown 阅读器。",
@@ -70,13 +79,56 @@ const SAMPLE_DOCUMENT = [
   "",
   "这里有一个脚注[^1]。",
   "",
-  "[^1]: 脚注在 M1 完整支持。",
+  "[^1]: 脚注已支持。",
   "",
 ].join("\n");
 
-const files = new Map<string, MockFile>([
-  ["/mock/welcome.md", { content: SAMPLE_DOCUMENT, mtimeMs: Date.now() }],
-]);
+const GUIDE_DOCUMENT = [
+  "# 工作区指南",
+  "",
+  "打开文件夹后可以浏览整个文档库。",
+  "",
+  "## 搜索",
+  "",
+  "支持中文分词搜索，试试搜「编辑器」。",
+  "",
+].join("\n");
+
+const DEEP_DOCUMENT = [
+  "# 深层笔记",
+  "",
+  "嵌套目录中的文档。编辑器草稿与冲突检测都会覆盖这里。",
+  "",
+].join("\n");
+
+const files = new Map<string, MockFile>();
+const drafts = new Map<string, DraftRecord>();
+const fsListeners = new Set<(event: FsChangeEvent) => void>();
+let watchCounter = 0;
+let openRoots = new Set<string>(["/mock"]);
+
+function now(): number {
+  return Date.now();
+}
+
+/** 仅用于开发与 E2E：重置 Mock 文件系统与草稿。 */
+export function resetMockFileSystem(): void {
+  files.clear();
+  drafts.clear();
+  openRoots = new Set(["/mock"]);
+  seedFiles();
+}
+
+function seedFiles(): void {
+  files.set("/mock/welcome.md", { content: SAMPLE_DOCUMENT, mtimeMs: now() });
+  files.set("/mock/docs/guide.md", { content: GUIDE_DOCUMENT, mtimeMs: now() });
+  files.set("/mock/docs/deep/note.md", {
+    content: DEEP_DOCUMENT,
+    mtimeMs: now(),
+  });
+}
+
+seedFiles();
 
 function readFile(path: string): MockFile {
   const file = files.get(path);
@@ -86,9 +138,56 @@ function readFile(path: string): MockFile {
   return file;
 }
 
+function isMarkdown(path: string): boolean {
+  return /\.(md|markdown|mdown|mkd)$/i.test(path);
+}
+
+/** Mock 工作区树：从扁平文件推导目录。 */
+function scanEntries(root: string, withContent: boolean): VaultEntry[] {
+  const prefix = root.endsWith("/") ? root : `${root}/`;
+  const dirs = new Map<string, VaultEntry>();
+  const entries: VaultEntry[] = [];
+
+  for (const [path, file] of files) {
+    if (!path.startsWith(prefix)) continue;
+    if (!isMarkdown(path)) continue;
+
+    const segments = path.slice(prefix.length).split("/");
+    for (let depth = 1; depth < segments.length; depth += 1) {
+      const dirPath = prefix + segments.slice(0, depth).join("/");
+      if (!dirs.has(dirPath)) {
+        const entry: VaultEntry = {
+          name: segments[depth - 1] as string,
+          path: dirPath,
+          isDir: true,
+          size: 0,
+          mtimeMs: file.mtimeMs,
+        };
+        dirs.set(dirPath, entry);
+        entries.push(entry);
+      }
+    }
+
+    entries.push({
+      name: segments[segments.length - 1] as string,
+      path,
+      isDir: false,
+      size: new TextEncoder().encode(file.content).byteLength,
+      mtimeMs: file.mtimeMs,
+      content: withContent ? file.content : undefined,
+    });
+  }
+
+  return entries;
+}
+
 export const mockPlatform: Platform = {
   async pickFile() {
     return "/mock/welcome.md";
+  },
+
+  async pickFolder() {
+    return "/mock";
   },
 
   async readDocument(path: string): Promise<TextDocument> {
@@ -120,7 +219,7 @@ export const mockPlatform: Platform = {
       });
     }
 
-    const mtimeMs = Date.now();
+    const mtimeMs = now();
     files.set(path, { content, mtimeMs });
     return {
       mtimeMs,
@@ -148,13 +247,88 @@ export const mockPlatform: Platform = {
       `font-family="sans-serif">${safePath}</text></svg>`;
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   },
+
+  async scanVault(root: string, withContent: boolean): Promise<VaultScan> {
+    if (!openRoots.has(root)) {
+      throw new PlatformError("PATH_OUTSIDE_ROOT", "目录未授权");
+    }
+    return { root, entries: scanEntries(root, withContent), truncated: false };
+  },
+
+  async listDir(path: string): Promise<VaultEntry[]> {
+    const prefix = path.endsWith("/") ? path : `${path}/`;
+    const result: VaultEntry[] = [];
+    const seen = new Set<string>();
+
+    for (const [filePath, file] of files) {
+      if (!filePath.startsWith(prefix)) continue;
+      const rest = filePath.slice(prefix.length);
+      const first = rest.split("/")[0] as string;
+      const key = `${prefix}${first}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const isDir = rest.includes("/");
+      result.push({
+        name: first,
+        path: key,
+        isDir,
+        size: isDir ? 0 : new TextEncoder().encode(file.content).byteLength,
+        mtimeMs: file.mtimeMs,
+      });
+    }
+
+    return result.sort((a, b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+      return a.name.localeCompare(b.name, "zh-CN");
+    });
+  },
+
+  async watchPaths(_paths: string[], _options: WatchOptions): Promise<number> {
+    watchCounter += 1;
+    return watchCounter;
+  },
+
+  async unwatchPaths(): Promise<void> {
+    // Mock 不需要真实监听。
+  },
+
+  onFsChange(callback) {
+    fsListeners.add(callback);
+    return () => fsListeners.delete(callback);
+  },
+
+  async saveDraft(path, content, baselineMtimeMs) {
+    drafts.set(path, {
+      path,
+      content,
+      baselineMtimeMs,
+      savedAt: now(),
+      version: 1,
+    });
+  },
+
+  async loadDraft(path) {
+    return drafts.get(path) ?? null;
+  },
+
+  async clearDraft(path) {
+    drafts.delete(path);
+  },
+
+  async cleanupDrafts() {
+    return 0;
+  },
 };
 
-/** 仅用于开发与 E2E：重置 Mock 文件系统。 */
-export function resetMockFileSystem(): void {
-  files.clear();
-  files.set("/mock/welcome.md", {
-    content: SAMPLE_DOCUMENT,
-    mtimeMs: Date.now(),
-  });
+/** 仅用于开发与 E2E：模拟外部程序修改文件，触发 fs://change。 */
+export function mockExternalChange(path: string): void {
+  const file = files.get(path);
+  if (file) {
+    file.mtimeMs = now();
+  }
+  const event: FsChangeEvent = { watchId: 1, paths: [path] };
+  for (const listener of fsListeners) {
+    listener(event);
+  }
 }

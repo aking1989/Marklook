@@ -1,9 +1,11 @@
 import {
   BookOpen,
   FileText,
+  FolderOpen,
   Moon,
   Pencil,
   Printer,
+  RefreshCw,
   Save,
   Sun,
 } from "lucide-react";
@@ -13,14 +15,17 @@ import {
   type EditorHandle,
 } from "./features/editor/EditorViewHost";
 import { ReaderView, type ReaderHandle } from "./features/reader/ReaderView";
+import { FileTree } from "./features/workspace/FileTree";
 import { renderMarkdown } from "./markdown/pipeline";
 import { PlatformError, platform } from "./platform";
 import { useDocumentStore, type DocStatus } from "./stores/documentStore";
+import { useRecentsStore } from "./stores/recentsStore";
 import {
   fontStack,
   useSettingsStore,
   type Theme,
 } from "./stores/settingsStore";
+import { useWorkspaceStore } from "./stores/workspaceStore";
 
 function errorMessage(error: unknown): string {
   if (error instanceof PlatformError) return error.message;
@@ -109,6 +114,18 @@ export default function App() {
     setReadingFont,
     setAllowRemoteImages,
   } = useSettingsStore();
+
+  const {
+    root: workspaceRoot,
+    tree,
+    truncated: workspaceTruncated,
+    scanning,
+    expanded,
+    openWorkspace,
+    refresh: refreshWorkspace,
+    toggleDir,
+  } = useWorkspaceStore();
+  const { recentFiles, pushFile, pushWorkspace } = useRecentsStore();
 
   const readerRef = useRef<ReaderHandle>(null);
   const editorRef = useRef<EditorHandle>(null);
@@ -230,12 +247,56 @@ export default function App() {
         pendingReadLine.current = 1;
         setLoaded(doc, rendered);
         editorRef.current?.setValue(doc.content);
+        pushFile(target);
       } catch (caught) {
         setError(errorMessage(caught));
       }
     },
-    [allowRemoteImages, dirty, path, setLoaded, setError, setLoading, theme],
+    [
+      allowRemoteImages,
+      dirty,
+      path,
+      pushFile,
+      setLoaded,
+      setError,
+      setLoading,
+      theme,
+    ],
   );
+
+  const openFolder = useCallback(async () => {
+    try {
+      const picked = await platform.pickFolder();
+      if (!picked) return;
+      pushWorkspace(picked);
+      await openWorkspace(picked);
+      // 工作区树刷新：递归监听，只关心 Markdown 扩展名。
+      await platform.watchPaths([picked], {
+        recursive: true,
+        markdownOnly: true,
+      });
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
+  }, [openWorkspace, pushWorkspace, setError]);
+
+  // 外部文件变更 → 500ms 去抖刷新工作区树（当前文档的处理见文档变更检测）。
+  const workspaceRefreshTimer = useRef<number | null>(null);
+  useEffect(() => {
+    const unsubscribe = platform.onFsChange(() => {
+      if (workspaceRefreshTimer.current !== null) return;
+      workspaceRefreshTimer.current = window.setTimeout(() => {
+        workspaceRefreshTimer.current = null;
+        void refreshWorkspace();
+      }, 500);
+    });
+    return () => {
+      unsubscribe();
+      if (workspaceRefreshTimer.current !== null) {
+        window.clearTimeout(workspaceRefreshTimer.current);
+      }
+    };
+  }, [refreshWorkspace]);
 
   const openFile = useCallback(async () => {
     if (
@@ -488,6 +549,14 @@ export default function App() {
             打开
           </button>
           <button
+            className="tool-btn icon-only"
+            onClick={() => void openFolder()}
+            title="打开文件夹（工作区）"
+            aria-label="打开文件夹"
+          >
+            <FolderOpen size={16} />
+          </button>
+          <button
             className="tool-btn"
             onClick={() => void toggleMode()}
             disabled={!path || !render}
@@ -526,6 +595,68 @@ export default function App() {
 
       <div className="workbench">
         <aside className="sidebar">
+          <section className="side-section workspace-section">
+            <h2>工作区</h2>
+            {workspaceRoot ? (
+              <>
+                <div className="workspace-toolbar">
+                  <span className="workspace-root" title={workspaceRoot}>
+                    {fileName(workspaceRoot)}
+                  </span>
+                  <button
+                    className="icon-btn"
+                    onClick={() => void refreshWorkspace()}
+                    title="刷新工作区"
+                    aria-label="刷新工作区"
+                    disabled={scanning}
+                  >
+                    <RefreshCw size={13} />
+                  </button>
+                </div>
+                <div className="file-tree-scroll">
+                  <FileTree
+                    nodes={tree}
+                    expanded={expanded}
+                    activePath={path}
+                    onToggleDir={toggleDir}
+                    onOpenFile={(filePath) => void openPath(filePath)}
+                  />
+                </div>
+                {workspaceTruncated && (
+                  <p className="tree-truncated">仅显示前 10,000 个条目</p>
+                )}
+              </>
+            ) : (
+              <button
+                className="primary-btn slim"
+                onClick={() => void openFolder()}
+              >
+                <FolderOpen size={14} />
+                打开文件夹
+              </button>
+            )}
+          </section>
+
+          {recentFiles.length > 0 && !workspaceRoot && (
+            <section className="side-section">
+              <h2>最近</h2>
+              <ul className="recent-list">
+                {recentFiles.slice(0, 5).map((entry) => (
+                  <li key={entry.path}>
+                    <button
+                      className="recent-item"
+                      onClick={() => void openPath(entry.path)}
+                      title={entry.path}
+                    >
+                      <FileText size={12} />
+                      <span>{entry.name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="side-section">
             <h2>文档</h2>
             {path ? (

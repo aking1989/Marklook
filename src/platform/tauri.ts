@@ -1,9 +1,15 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   PlatformError,
+  type DraftRecord,
+  type FsChangeEvent,
   type Platform,
   type PlatformErrorCode,
   type TextDocument,
+  type VaultScan,
+  type VaultEntry,
+  type WatchOptions,
   type WriteOptions,
   type WriteResult,
 } from "./types";
@@ -55,6 +61,8 @@ function utf8ToBase64Url(text: string): string {
 export const tauriPlatform: Platform = {
   pickFile: () => call<string | null>("pick_file_and_allow"),
 
+  pickFolder: () => call<string | null>("pick_folder_and_allow"),
+
   readDocument: (path) => call<TextDocument>("read_document", { path }),
 
   writeDocument: (path: string, content: string, options: WriteOptions) =>
@@ -75,4 +83,37 @@ export const tauriPlatform: Platform = {
     const token = utf8ToBase64Url(absolutePath);
     return convertFileSrc(`local/${token}`, "mdasset");
   },
+
+  scanVault: (root, withContent) =>
+    call<VaultScan>("scan_vault", { root, withContent }),
+
+  listDir: (path) => call<VaultEntry[]>("list_dir", { path }),
+
+  watchPaths: (paths, options: WatchOptions) =>
+    call<number>("watch_paths", {
+      paths,
+      recursive: options.recursive,
+      markdownOnly: options.markdownOnly,
+      targetFile: options.targetFile ?? null,
+    }),
+
+  unwatchPaths: (watchId) => call<void>("unwatch_paths", { watchId }),
+
+  onFsChange(callback) {
+    const promise = listen<FsChangeEvent>("fs://change", (event) =>
+      callback(event.payload),
+    );
+    return () => {
+      void promise.then((unlisten) => unlisten());
+    };
+  },
+
+  saveDraft: (path, content, baselineMtimeMs) =>
+    call<void>("save_draft", { path, content, baselineMtimeMs }),
+
+  loadDraft: (path) => call<DraftRecord | null>("load_draft", { path }),
+
+  clearDraft: (path) => call<void>("clear_draft", { path }),
+
+  cleanupDrafts: () => call<number>("cleanup_drafts"),
 };

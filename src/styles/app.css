@@ -393,3 +393,142 @@
     display: none;
   }
 }
+
+/* 工作区与文件树 */
+.workspace-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+}
+
+.workspace-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.workspace-root {
+  flex: 1;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+}
+
+.file-tree-scroll {
+  overflow-y: auto;
+  max-height: 40vh;
+  min-height: 60px;
+}
+
+.file-tree ul {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  overflow: hidden;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tree-row:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.tree-row.active {
+  background: var(--bg-hover);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tree-chevron,
+.tree-icon {
+  flex: none;
+  opacity: 0.75;
+}
+
+.tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-truncated {
+  margin: 6px 0 0;
+  color: var(--fg-muted);
+  font-size: 11.5px;
+}
+
+.primary-btn.slim {
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+
+.recent-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  overflow: hidden;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.recent-item:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.recent-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
