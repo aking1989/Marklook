@@ -14,6 +14,8 @@ export interface RenderInput {
   source: string;
   docPath: string | null;
   options?: Partial<RenderOptions>;
+  /** 绝对路径 → 资源 URL（Tauri 下为 mdasset://），由平台层注入。 */
+  resolveAsset?: (absolutePath: string) => string;
 }
 
 export interface OutlineItem {

@@ -14,6 +14,8 @@ import { unified, type Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import { detectCapabilities } from "./detect";
 import { sanitizeSchema } from "./schema";
+import { rehypeResolveUrls } from "./plugins/rehypeResolveUrls";
+import { rehypeTableWrap } from "./plugins/rehypeTableWrap";
 import type {
   OutlineItem,
   RenderInput,
@@ -181,7 +183,16 @@ export async function renderMarkdown(
     processor.use(rehypeMermaid);
   }
 
-  processor.use(rehypeStringify);
+  // 资源解析与表格包装固定执行（可信生成阶段）。
+  processor
+    .use(rehypeResolveUrls, {
+      docPath: input.docPath,
+      allowRemoteImages: options.allowRemoteImages,
+      resolveAsset: input.resolveAsset,
+      forExport: options.forExport,
+    })
+    .use(rehypeTableWrap)
+    .use(rehypeStringify);
   const file = await processor.process(input.source);
   const html = String(file);
   const title = resolveTitle(frontmatter, outline, input.docPath);
