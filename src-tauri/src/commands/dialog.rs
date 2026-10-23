@@ -36,3 +36,26 @@ pub async fn pick_file_and_allow(
 
     Ok(Some(canonical.to_string_lossy().into_owned()))
 }
+
+#[tauri::command]
+pub async fn pick_folder_and_allow(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, CommandError> {
+    let picked = app.dialog().file().blocking_pick_folder();
+
+    let Some(folder_path) = picked else {
+        return Ok(None);
+    };
+
+    let path = folder_path
+        .into_path()
+        .map_err(|error| CommandError::Io(error.to_string()))?;
+
+    let canonical = dunce::canonicalize(&path)
+        .map_err(|_| CommandError::NotFound(path.to_string_lossy().into_owned()))?;
+
+    state.allow_root(canonical.clone());
+
+    Ok(Some(canonical.to_string_lossy().into_owned()))
+}

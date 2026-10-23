@@ -3,6 +3,7 @@ mod commands;
 mod error;
 mod io;
 mod state;
+mod vault;
 
 use state::AppState;
 use tauri::Manager;
@@ -22,10 +23,13 @@ pub fn run() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             commands::dialog::pick_file_and_allow,
+            commands::dialog::pick_folder_and_allow,
             commands::document::read_document,
             commands::document::write_document,
             commands::document::take_pending_open,
             commands::system::print_window,
+            commands::vault::scan_vault,
+            commands::vault::list_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
