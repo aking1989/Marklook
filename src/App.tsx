@@ -155,7 +155,10 @@ export default function App() {
 
       setLoading();
       const doc = await platform.readDocument(picked);
-      const rendered = await renderMarkdown(doc.content, doc.path);
+      const rendered = await renderMarkdown({
+        source: doc.content,
+        docPath: doc.path,
+      });
       pendingReadLine.current = 1;
       setLoaded(doc, rendered);
       editorRef.current?.setValue(doc.content);
@@ -218,7 +221,10 @@ export default function App() {
     setDirty(nextContent !== savedContent);
 
     try {
-      const rendered = await renderMarkdown(nextContent, path);
+      const rendered = await renderMarkdown({
+        source: nextContent,
+        docPath: path,
+      });
       setRender(rendered);
       setMode("read");
     } catch (caught) {
@@ -248,7 +254,9 @@ export default function App() {
       setContent(nextContent);
       setDirty(nextContent !== savedContent);
       try {
-        setRender(await renderMarkdown(nextContent, path));
+        setRender(
+          await renderMarkdown({ source: nextContent, docPath: path }),
+        );
       } catch (caught) {
         setError(errorMessage(caught));
         return;
