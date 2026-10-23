@@ -4,9 +4,11 @@ mod error;
 mod io;
 mod state;
 mod vault;
+mod watch;
 
 use state::AppState;
 use tauri::Manager;
+use watch::WatchRegistry;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -21,6 +23,7 @@ pub fn run() {
             }
         })
         .manage(AppState::default())
+        .manage(WatchRegistry::default())
         .invoke_handler(tauri::generate_handler![
             commands::dialog::pick_file_and_allow,
             commands::dialog::pick_folder_and_allow,
@@ -30,6 +33,8 @@ pub fn run() {
             commands::system::print_window,
             commands::vault::scan_vault,
             commands::vault::list_dir,
+            commands::watch::watch_paths,
+            commands::watch::unwatch_paths,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
