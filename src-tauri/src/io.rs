@@ -166,4 +166,64 @@ mod tests {
         let entries = fs::read_dir(dir.path()).unwrap().count();
         assert_eq!(entries, 1);
     }
+
+    /// M0 退出标准：打开 → 编辑 → 保存后，EOL 与 BOM 必须与原文件字节级一致。
+    #[test]
+    fn round_trip_preserves_crlf_and_bom_bytes() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("crlf-bom.md");
+        fs::write(
+            &path,
+            b"\xEF\xBB\xBF# \xe6\xa0\x87\xe9\xa2\x98\r\n\r\n\xe6\xad\xa3\xe6\x96\x87\r\n",
+        )
+        .unwrap();
+
+        let first = read_text_file(&path).unwrap();
+        let edited = format!("{}new line\n", first.content);
+        atomic_write(&path, &encode_text(&edited, first.eol, first.bom)).unwrap();
+
+        let second = read_text_file(&path).unwrap();
+
+        assert_eq!(second.content, edited);
+        assert_eq!(second.eol, Eol::Crlf);
+        assert!(second.bom);
+        assert_eq!(
+            fs::read(&path).unwrap(),
+            b"\xEF\xBB\xBF# \xe6\xa0\x87\xe9\xa2\x98\r\n\r\n\xe6\xad\xa3\xe6\x96\x87\r\nnew line\r\n"
+        );
+    }
+
+    #[test]
+    fn round_trip_preserves_lf_without_bom_bytes() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("lf.md");
+        fs::write(&path, b"# title\n\ntext\n").unwrap();
+
+        let first = read_text_file(&path).unwrap();
+        let edited = format!("{}extra\n", first.content);
+        atomic_write(&path, &encode_text(&edited, first.eol, first.bom)).unwrap();
+
+        let second = read_text_file(&path).unwrap();
+
+        assert_eq!(second.content, edited);
+        assert_eq!(second.eol, Eol::Lf);
+        assert!(!second.bom);
+        assert_eq!(fs::read(&path).unwrap(), b"# title\n\ntext\nextra\n");
+    }
+
+    /// 罕见的老式孤立 CR 在读取时统一规范化为 LF，保存后不再出现。
+    #[test]
+    fn round_trip_normalizes_lone_carriage_returns() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("cr.md");
+        fs::write(&path, b"a\rb\r\n").unwrap();
+
+        let first = read_text_file(&path).unwrap();
+
+        assert_eq!(first.content, "a\nb\n");
+        assert_eq!(first.eol, Eol::Crlf);
+
+        atomic_write(&path, &encode_text(&first.content, first.eol, first.bom)).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"a\r\nb\r\n");
+    }
 }

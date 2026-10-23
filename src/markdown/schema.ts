@@ -11,10 +11,13 @@ export const sanitizeSchema: Schema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
+    // rehype-raw 会把 data-* 规范化成 camelCase，两种写法都要放行。
     "*": [
       ...(defaultSchema.attributes?.["*"] ?? []),
       "data-line-start",
       "data-line-end",
+      "dataLineStart",
+      "dataLineEnd",
     ],
     code: [
       ...(defaultSchema.attributes?.code ?? []),

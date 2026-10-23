@@ -15,14 +15,8 @@ import {
 import { ReaderView, type ReaderHandle } from "./features/reader/ReaderView";
 import { renderMarkdown } from "./markdown/pipeline";
 import { PlatformError, platform } from "./platform";
-import {
-  useDocumentStore,
-  type DocStatus,
-} from "./stores/documentStore";
-import {
-  useSettingsStore,
-  type Theme,
-} from "./stores/settingsStore";
+import { useDocumentStore, type DocStatus } from "./stores/documentStore";
+import { useSettingsStore, type Theme } from "./stores/settingsStore";
 
 function errorMessage(error: unknown): string {
   if (error instanceof PlatformError) return error.message;
@@ -538,10 +532,7 @@ export default function App() {
               <BookOpen size={44} strokeWidth={1.2} />
               <h1>打开一篇 Markdown</h1>
               <p>阅读优先，需要时再进入源码。</p>
-              <button
-                className="primary-btn"
-                onClick={() => void openFile()}
-              >
+              <button className="primary-btn" onClick={() => void openFile()}>
                 <FileText size={16} />
                 选择文件
               </button>
@@ -562,9 +553,7 @@ export default function App() {
               {render.meta.wordCount} 字 · {render.meta.readingMinutes} 分钟
             </span>
           )}
-          <span className="mode-pill">
-            {mode === "read" ? "阅读" : "源码"}
-          </span>
+          <span className="mode-pill">{mode === "read" ? "阅读" : "源码"}</span>
         </span>
       </footer>
     </div>

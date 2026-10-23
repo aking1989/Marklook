@@ -15,6 +15,8 @@ dist-ssr
 # Test artifacts
 test-results
 playwright-report
+# 打印 / PDF 验证产物（由 tools/pdf-check 生成）
+tests/fixtures/*.pdf
 
 # Editor directories and files
 .vscode/*

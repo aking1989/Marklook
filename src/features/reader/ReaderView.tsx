@@ -6,7 +6,11 @@ import {
   useRef,
   type MouseEvent,
 } from "react";
-import { buildLineMap, lineAtViewportTop, scrollToLine } from "../../lib/lineMap";
+import {
+  buildLineMap,
+  lineAtViewportTop,
+  scrollToLine,
+} from "../../lib/lineMap";
 import { isTauriRuntime } from "../../platform";
 
 export interface ReaderHandle {
@@ -79,11 +83,7 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
 
     return (
       <div ref={scrollerRef} className="reader-scroll" hidden={hidden}>
-        <article
-          ref={articleRef}
-          className="md-body"
-          onClick={handleClick}
-        />
+        <article ref={articleRef} className="md-body" onClick={handleClick} />
       </div>
     );
   },

@@ -535,17 +535,20 @@ CI 只跑 Mock；Tauri 契约测试作为发布前手动清单的一部分。
 pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm lint
-pnpm test:unit --coverage
-pnpm test:e2e          # Chromium + WebKit
+pnpm format:check
+pnpm test              # Vitest 单元测试
+pnpm test:e2e          # Playwright Chromium（WebKit 在 M5 兼容性阶段加入）
 cargo fmt --check
-cargo clippy -- -D warnings
+cargo clippy --all-targets -- -D warnings
 cargo test
 ```
+
+工作流见 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)：`frontend` 任务跑前端全部门禁，`rust` 任务在 macOS 与 Windows 上编译并测试；Rust 任务会先构建前端，因为 `generate_context!` 在编译期嵌入 `dist`。
 
 门禁：
 
 - 任一失败阻止合并。
-- 覆盖率低于阈值阻止合并（核心模块 ≥ 90%，整体 ≥ 70%）。
+- 覆盖率低于阈值阻止合并（核心模块 ≥ 90%，整体 ≥ 70%）。覆盖率统计在 M1 核心渲染管线稳定后接入。
 - 新增文件若属于核心纯逻辑，必须附带单元测试。
 
 ### 12.2 每晚

@@ -12,9 +12,7 @@ export function buildLineMap(
   const scrollerRect = scroller.getBoundingClientRect();
   const scrollTop = scroller.scrollTop;
 
-  return Array.from(
-    article.querySelectorAll<HTMLElement>("[data-line-start]"),
-  )
+  return Array.from(article.querySelectorAll<HTMLElement>("[data-line-start]"))
     .map((element) => {
       const startLine = Number(element.dataset.lineStart);
       const endLine = Number(
@@ -69,7 +67,9 @@ export function lineAtViewportTop(
 
   return Math.max(
     1,
-    Math.round(anchor.startLine + ratio * Math.max(0, endLine - anchor.startLine)),
+    Math.round(
+      anchor.startLine + ratio * Math.max(0, endLine - anchor.startLine),
+    ),
   );
 }
 
@@ -97,8 +97,5 @@ export function scrollToLine(
     ? anchor.top + ratio * (next.top - anchor.top)
     : anchor.top + ratio * anchor.height;
 
-  scroller.scrollTop = Math.max(
-    0,
-    targetTop - scroller.clientHeight * 0.1,
-  );
+  scroller.scrollTop = Math.max(0, targetTop - scroller.clientHeight * 0.1);
 }

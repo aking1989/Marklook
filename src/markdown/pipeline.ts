@@ -61,9 +61,7 @@ function countWords(source: string): {
   const cjkPattern = /[㐀-鿿豈-﫿]/g;
   const cjkCount = source.match(cjkPattern)?.length ?? 0;
   const latinCount =
-    source
-      .replace(cjkPattern, " ")
-      .match(/[A-Za-z0-9_]+/g)?.length ?? 0;
+    source.replace(cjkPattern, " ").match(/[A-Za-z0-9_]+/g)?.length ?? 0;
 
   return {
     charCount: source.length,

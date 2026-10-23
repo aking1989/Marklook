@@ -2,7 +2,7 @@
 
 跨 macOS / Windows 的本地 Markdown 阅读编辑器。以阅读体验为主，`Cmd/Ctrl+E` 在**阅读视图**与**源码编辑模式**之间切换，交互参照 Typora 的阅读视图 / 源码模式，但不做所见即所得的行内渲染。
 
-> 当前状态：**M0 开发中**。Tauri 应用可启动，已跑通打开（Mock）→ 阅读 → `Cmd/Ctrl+E` 源码 → 保存的主链路；系统打印 / PDF 已通过 macOS 实机验证（`Cmd/Ctrl+P`）；原生文件对话框与 Windows 构建待验证。
+> 当前状态：**M0 已完成，M1（阅读体验）进行中**。Tauri 应用可启动，已跑通打开 → 阅读 → `Cmd/Ctrl+E` 源码 → 保存的主链路；系统打印 / PDF 已通过 macOS 实机验证（`Cmd/Ctrl+P`）；EOL/BOM 字节级往返已由 Rust 测试固化（读 → 改 → 写 → 再读，CRLF+BOM / LF / 孤立 CR 全覆盖）；本地门禁（lint、format、单元测试、E2E、cargo fmt/clippy/test）全部通过，CI 已覆盖前端全门禁与 macOS/Windows Rust 检查。CI 首跑结果需在 GitHub Actions 页面确认（本机无 gh/token，仅完成静态审查）。
 
 ## 快速开始
 
@@ -11,6 +11,9 @@ pnpm install
 pnpm dev            # 浏览器 + Mock 文件系统，便于快速迭代
 pnpm tauri dev      # 桌面应用（需要 Rust 工具链）
 pnpm typecheck
+pnpm lint
+pnpm format:check
+pnpm test           # Vitest 单元测试
 pnpm test:e2e       # Playwright，使用本机 Chrome
 cd src-tauri && cargo test
 ```
@@ -81,10 +84,10 @@ Rust 通过 rustup 安装后，如终端找不到 `cargo`，执行 `source ~/.ca
 ## 目录
 
 ```text
-docs/            设计文档（当前）
-src/             前端源码（待实现）
-src-tauri/       Rust 后端（待实现）
-tests/           单元 / E2E / fixtures（待实现）
+docs/            设计文档
+src/             前端源码（React 19 + TS：渲染管线、阅读/编辑视图、Platform 层、stores）
+src-tauri/       Rust 后端（IO、对话框、系统打印、状态与权限）
+tests/           单元 / E2E / fixtures
 ```
 
 ## 待确认

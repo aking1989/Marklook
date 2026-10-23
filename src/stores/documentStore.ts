@@ -4,12 +4,7 @@ import type { Eol, TextDocument } from "../platform/types";
 
 export type DocMode = "read" | "edit";
 export type DocStatus =
-  | "empty"
-  | "loading"
-  | "clean"
-  | "dirty"
-  | "saving"
-  | "error";
+  "empty" | "loading" | "clean" | "dirty" | "saving" | "error";
 
 interface DocumentState {
   path: string | null;
@@ -91,9 +86,7 @@ export const useDocumentStore = create<DocumentState>()((set) => ({
     }),
 
   markDirty: () =>
-    set((state) =>
-      state.dirty ? state : { dirty: true, status: "dirty" },
-    ),
+    set((state) => (state.dirty ? state : { dirty: true, status: "dirty" })),
 
   setMode: (mode) => set({ mode }),
 
@@ -111,17 +104,12 @@ export const useDocumentStore = create<DocumentState>()((set) => ({
       error: null,
     }),
 
-  setError: (message) =>
-    set({ status: "error", error: message }),
+  setError: (message) => set({ status: "error", error: message }),
 
   clearError: () =>
     set((state) => ({
       error: null,
-      status: state.dirty
-        ? "dirty"
-        : state.path
-          ? "clean"
-          : "empty",
+      status: state.dirty ? "dirty" : state.path ? "clean" : "empty",
     })),
 
   reset: () => set({ ...EMPTY_STATE }),

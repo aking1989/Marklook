@@ -1,6 +1,8 @@
 .app-shell {
   display: grid;
-  grid-template-rows: var(--titlebar-height) minmax(0, 1fr) var(--statusbar-height);
+  grid-template-rows: var(--titlebar-height) minmax(0, 1fr) var(
+      --statusbar-height
+    );
   height: 100%;
   background: var(--bg);
   color: var(--fg);

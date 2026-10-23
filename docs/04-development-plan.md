@@ -7,7 +7,7 @@
 | 状态 | 待评审 |
 | 上游文档 | [概要设计](./01-architecture.md) · [详细设计](./02-detailed-design.md) · [测试方案](./03-test-plan.md) |
 
-> **进度（2026-10-22）**：M0 主体完成。Tauri 应用可启动；Mock 环境下打开 → 阅读 → 源码切换 → 保存通过 Playwright 验证；Rust 原子写、EOL/BOM、allowlist 共 11 个单元测试通过；PDF 打印链路已在 macOS 实机验证，详见 [PDF 技术验证报告](./05-pdf-verification.md)。待办：原生打开对话框实机验证、Windows 构建验证。
+> **进度（2026-10-23）**：**M0 完成**。Tauri 应用可启动；打开 → 阅读 → 源码切换 → 保存闭环经 Playwright 与 macOS 实机验证；PDF 打印链路已在 macOS 实机验证（结论：系统打印可用，不启用 Typst 备选），详见 [PDF 技术验证报告](./05-pdf-verification.md)。质量门禁全部通过（ESLint、Prettier、Vitest 13 项、Playwright 2 项、cargo fmt/clippy/test 14 项），CI 覆盖前端全门禁 + macOS/Windows Rust 矩阵。EOL/BOM 往返已固化为 Rust 字节级测试（CRLF+BOM、LF、孤立 CR）。Windows CI 首跑结论需在 GitHub Actions 页面人工查看（开发机无私有仓库访问凭据）；已完成 Windows 步骤静态审查，未发现风险点。**下一步：M1 阅读体验（§3 M1）开工。**
 
 ---
 

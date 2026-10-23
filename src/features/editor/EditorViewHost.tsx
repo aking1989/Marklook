@@ -26,12 +26,7 @@ import {
   lineNumbers,
   rectangularSelection,
 } from "@codemirror/view";
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { Theme } from "../../stores/settingsStore";
 
 export interface EditorHandle {
@@ -83,10 +78,7 @@ function layoutTheme(): Extension {
   });
 }
 
-const lightTheme = [
-  layoutTheme(),
-  syntaxHighlighting(defaultHighlightStyle),
-];
+const lightTheme = [layoutTheme(), syntaxHighlighting(defaultHighlightStyle)];
 const darkTheme = [oneDark, layoutTheme()];
 
 function themeExtension(theme: Theme): Extension {
@@ -94,10 +86,7 @@ function themeExtension(theme: Theme): Extension {
 }
 
 export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
-  function EditorViewHost(
-    { initialValue, visible, theme, onChange },
-    ref,
-  ) {
+  function EditorViewHost({ initialValue, visible, theme, onChange }, ref) {
     const hostRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const themeCompartment = useRef(new Compartment());
@@ -154,16 +143,13 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
         viewRef.current = null;
       };
       // EditorView 只创建一次；后续通过 setValue / Compartment 更新。
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
       const view = viewRef.current;
       if (!view) return;
       view.dispatch({
-        effects: themeCompartment.current.reconfigure(
-          themeExtension(theme),
-        ),
+        effects: themeCompartment.current.reconfigure(themeExtension(theme)),
       });
     }, [theme]);
 
@@ -202,10 +188,7 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
         scrollToLine(line: number, focus = true) {
           const view = viewRef.current;
           if (!view) return;
-          const target = Math.min(
-            Math.max(1, line),
-            view.state.doc.lines,
-          );
+          const target = Math.min(Math.max(1, line), view.state.doc.lines);
           const position = view.state.doc.line(target).from;
           view.dispatch({
             selection: { anchor: position },
