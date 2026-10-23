@@ -209,7 +209,7 @@ export default function App() {
       source,
       docPath: path,
       resolveAsset: platform.toAssetUrl,
-      options: { allowRemoteImages, theme },
+      options: { allowRemoteImages, theme, largeFileMode: largeFile },
     })
       .then((next) => setRender(next))
       .catch(() => undefined);
@@ -244,6 +244,14 @@ export default function App() {
   const handleTopLineChange = useCallback((line: number) => {
     setActiveLine(line);
   }, []);
+
+  // 大文件模式：>2MB 或 >25,000 行（详细设计 §6.7）。
+  const largeFile = useMemo(
+    () =>
+      content.length > 2 * 1024 * 1024 ||
+      (content.match(/\n/g)?.length ?? 0) > 25_000,
+    [content],
+  );
 
   const activeOutlineId = useMemo(() => {
     if (!render) return null;
@@ -284,7 +292,7 @@ export default function App() {
           source: doc.content,
           docPath: doc.path,
           resolveAsset: platform.toAssetUrl,
-          options: { allowRemoteImages, theme },
+          options: { allowRemoteImages, theme, largeFileMode: largeFile },
         });
         pendingReadLine.current = options?.gotoLine ?? 1;
         setConflict(null);
@@ -323,6 +331,7 @@ export default function App() {
     [
       allowRemoteImages,
       dirty,
+      largeFile,
       path,
       pushFile,
       revealPath,
@@ -521,7 +530,7 @@ export default function App() {
           source: disk.content,
           docPath: disk.path,
           resolveAsset: platform.toAssetUrl,
-          options: { allowRemoteImages, theme },
+          options: { allowRemoteImages, theme, largeFileMode: largeFile },
         });
         pendingReadLine.current = topLine;
         setLoaded(disk, rendered);
@@ -543,6 +552,7 @@ export default function App() {
     content,
     dirty,
     editorMounted,
+    largeFile,
     mtimeMs,
     path,
     setLoaded,
@@ -582,7 +592,7 @@ export default function App() {
         source: draftPrompt.content,
         docPath: path,
         resolveAsset: platform.toAssetUrl,
-        options: { allowRemoteImages, theme },
+        options: { allowRemoteImages, theme, largeFileMode: largeFile },
       });
       setContent(draftPrompt.content);
       setDirty(true);
@@ -596,6 +606,7 @@ export default function App() {
   }, [
     allowRemoteImages,
     draftPrompt,
+    largeFile,
     path,
     setContent,
     setDirty,
@@ -620,7 +631,7 @@ export default function App() {
         source: conflict.diskContent,
         docPath: path,
         resolveAsset: platform.toAssetUrl,
-        options: { allowRemoteImages, theme },
+        options: { allowRemoteImages, theme, largeFileMode: largeFile },
       });
       setLoaded(
         {
@@ -640,7 +651,17 @@ export default function App() {
     } catch (caught) {
       setError(errorMessage(caught));
     }
-  }, [allowRemoteImages, bom, conflict, eol, path, setError, setLoaded, theme]);
+  }, [
+    allowRemoteImages,
+    bom,
+    conflict,
+    eol,
+    largeFile,
+    path,
+    setError,
+    setLoaded,
+    theme,
+  ]);
 
   const toggleMode = useCallback(async () => {
     if (!path || !render) return;
@@ -662,7 +683,7 @@ export default function App() {
         source: nextContent,
         docPath: path,
         resolveAsset: platform.toAssetUrl,
-        options: { allowRemoteImages, theme },
+        options: { allowRemoteImages, theme, largeFileMode: largeFile },
       });
       setRender(rendered);
       setMode("read");
@@ -677,6 +698,7 @@ export default function App() {
     render,
     savedContent,
     allowRemoteImages,
+    largeFile,
     setContent,
     setDirty,
     setError,
@@ -700,7 +722,7 @@ export default function App() {
             source: nextContent,
             docPath: path,
             resolveAsset: platform.toAssetUrl,
-            options: { allowRemoteImages, theme },
+            options: { allowRemoteImages, theme, largeFileMode: largeFile },
           }),
         );
       } catch (caught) {
@@ -729,6 +751,7 @@ export default function App() {
     render,
     savedContent,
     allowRemoteImages,
+    largeFile,
     setContent,
     setDirty,
     setError,
@@ -1251,6 +1274,7 @@ export default function App() {
                   initialValue={content}
                   visible={mode === "edit"}
                   theme={theme}
+                  largeFile={largeFile}
                   onChange={handleEditorChange}
                   onPasteImage={handlePasteImage}
                 />
@@ -1280,6 +1304,14 @@ export default function App() {
           {render && (
             <span>
               {render.meta.wordCount} 字 · {render.meta.readingMinutes} 分钟
+            </span>
+          )}
+          {largeFile && (
+            <span
+              className="mode-pill large-file"
+              title="文档超过 2MB，已关闭代码高亮等装饰"
+            >
+              大文件
             </span>
           )}
           <span className="mode-pill">{mode === "read" ? "阅读" : "源码"}</span>

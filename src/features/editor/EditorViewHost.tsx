@@ -42,6 +42,8 @@ interface EditorViewHostProps {
   initialValue: string;
   visible: boolean;
   theme: Theme;
+  /** 大文件模式：关闭行号/当前行高亮等装饰，保留搜索与撤销。 */
+  largeFile?: boolean;
   onChange: () => void;
   /**
    * 粘贴/拖入图片时由宿主保存到 assets/，返回可插入的相对路径；
@@ -95,12 +97,13 @@ function themeExtension(theme: Theme): Extension {
 
 export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
   function EditorViewHost(
-    { initialValue, visible, theme, onChange, onPasteImage },
+    { initialValue, visible, theme, largeFile = false, onChange, onPasteImage },
     ref,
   ) {
     const hostRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const themeCompartment = useRef(new Compartment());
+    const featuresCompartment = useRef(new Compartment());
     const onChangeRef = useRef(onChange);
     const onPasteImageRef = useRef(onPasteImage);
     const initialValueRef = useRef(initialValue);
@@ -171,16 +174,12 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
       return EditorState.create({
         doc: value,
         extensions: [
-          lineNumbers(),
-          highlightActiveLineGutter(),
-          highlightSpecialChars(),
           history(),
           drawSelection(),
           dropCursor(),
+          highlightSpecialChars(),
           rectangularSelection(),
           crosshairCursor(),
-          highlightActiveLine(),
-          highlightSelectionMatches(),
           bracketMatching(),
           EditorView.lineWrapping,
           markdown({ base: markdownLanguage, codeLanguages: languages }),
@@ -190,6 +189,17 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
             ...searchKeymap,
             indentWithTab,
           ]),
+          // 大文件模式关闭行号/当前行/选区匹配高亮（>2MB 或 >25k 行）。
+          featuresCompartment.current.of(
+            largeFile
+              ? []
+              : [
+                  lineNumbers(),
+                  highlightActiveLineGutter(),
+                  highlightActiveLine(),
+                  highlightSelectionMatches(),
+                ],
+          ),
           themeCompartment.current.of(themeExtension(themeRef.current)),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) onChangeRef.current();
@@ -229,6 +239,23 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
         effects: themeCompartment.current.reconfigure(themeExtension(theme)),
       });
     }, [theme]);
+
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      view.dispatch({
+        effects: featuresCompartment.current.reconfigure(
+          largeFile
+            ? []
+            : [
+                lineNumbers(),
+                highlightActiveLineGutter(),
+                highlightActiveLine(),
+                highlightSelectionMatches(),
+              ],
+        ),
+      });
+    }, [largeFile]);
 
     useEffect(() => {
       if (!visible) return;
@@ -281,6 +308,8 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
           viewRef.current?.focus();
         },
       }),
+      // handle 与 createState 仅引用 ref（viewRef 等），不随渲染失效。
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       [],
     );
 

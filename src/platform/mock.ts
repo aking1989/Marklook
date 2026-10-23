@@ -101,6 +101,18 @@ const DEEP_DOCUMENT = [
   "",
 ].join("\n");
 
+/** 约 2.1MB 的大文档（行数控制在 25k 以内，触发字节阈值）。 */
+function largeDocument(): string {
+  const paragraph =
+    "这是一段用于大文件模式验证的正文，包含中文与 English 单词 mixed content。\n\n";
+  const sectionBody = paragraph.repeat(8);
+  const parts: string[] = ["# 大文件模式验证\n\n"];
+  for (let index = 0; index < 4200; index += 1) {
+    parts.push(`## 第${index}节\n\n${sectionBody}`);
+  }
+  return parts.join("");
+}
+
 const files = new Map<string, MockFile>();
 const drafts = new Map<string, DraftRecord>();
 const fsListeners = new Set<(event: FsChangeEvent) => void>();
@@ -126,6 +138,7 @@ function seedFiles(): void {
     content: DEEP_DOCUMENT,
     mtimeMs: now(),
   });
+  files.set("/mock/big.md", { content: largeDocument(), mtimeMs: now() });
 }
 
 seedFiles();
@@ -182,6 +195,7 @@ function scanEntries(root: string, withContent: boolean): VaultEntry[] {
 }
 
 let assetCounter = 0;
+let pickFileTarget = "/mock/welcome.md";
 
 export const mockPlatform: Platform = {
   async saveAsset(docPath, suggestedName) {
@@ -197,7 +211,10 @@ export const mockPlatform: Platform = {
   },
 
   async pickFile() {
-    return "/mock/welcome.md";
+    // addInitScript 场景（E2E）下模块尚未加载，从全局变量读取预设。
+    const preset = (window as unknown as { __mockPickFileTarget?: string })
+      .__mockPickFileTarget;
+    return preset ?? pickFileTarget;
   },
 
   async pickFolder() {
@@ -355,5 +372,8 @@ if (typeof window !== "undefined") {
   (window as unknown as Record<string, unknown>).__marklookMock = {
     externalChange: mockExternalChange,
     listenerCount: () => fsListeners.size,
+    setPickFile: (target: string) => {
+      pickFileTarget = target;
+    },
   };
 }
