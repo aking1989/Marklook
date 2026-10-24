@@ -15,7 +15,7 @@ import { visit } from "unist-util-visit";
 import { detectCapabilities } from "./detect";
 import { sanitizeSchema } from "./schema";
 import { rehypeResolveUrls } from "./plugins/rehypeResolveUrls";
-import { rehypeTableWrap } from "./plugins/rehypeTableWrap";
+import { rehypeTableWrap, rehypeTaskListA11y } from "./plugins/rehypeTableWrap";
 import type {
   OutlineItem,
   RenderInput,
@@ -246,6 +246,7 @@ export async function renderMarkdown(
       resolveAsset: input.resolveAsset,
       forExport: options.forExport,
     })
+    .use(rehypeTaskListA11y)
     .use(rehypeTableWrap)
     .use(rehypeStringify);
   const file = await processor.process(input.source);

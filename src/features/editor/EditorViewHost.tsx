@@ -189,6 +189,12 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
             ...searchKeymap,
             indentWithTab,
           ]),
+          // 可访问性：编辑区 accessible name；滚动区域可聚焦（axe scrollable-region-focusable）。
+          EditorView.contentAttributes.of({
+            "aria-label": "Markdown 源码编辑器",
+            role: "textbox",
+            "aria-multiline": "true",
+          }),
           // 大文件模式关闭行号/当前行/选区匹配高亮（>2MB 或 >25k 行）。
           featuresCompartment.current.of(
             largeFile
@@ -220,6 +226,7 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
 
       host.addEventListener("paste", handlePaste);
       host.addEventListener("drop", handleDrop);
+      host.querySelector(".cm-scroller")?.setAttribute("tabindex", "0");
 
       return () => {
         host.removeEventListener("paste", handlePaste);

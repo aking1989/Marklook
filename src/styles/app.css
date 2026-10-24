@@ -185,7 +185,8 @@
 /* 当前章节跟随滚动高亮 */
 .outline li.active button {
   background: var(--bg-hover);
-  color: var(--accent, var(--fg));
+  color: var(--fg);
+  border-left: 2px solid var(--accent);
   font-weight: 600;
 }
 
@@ -473,7 +474,8 @@
 
 .tree-row.active {
   background: var(--bg-hover);
-  color: var(--accent);
+  color: var(--fg);
+  border-left: 2px solid var(--accent);
   font-weight: 600;
 }
 
