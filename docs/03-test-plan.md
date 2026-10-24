@@ -618,13 +618,25 @@ cargo test
 
 ## 15. 发布验收清单
 
-- [ ] 所有自动化测试通过，覆盖率达标
-- [ ] 双平台手动矩阵完成
-- [ ] 性能预算全部达标，无 > 20% 回归
-- [ ] 安全语料全部通过
-- [ ] 安装/升级/卸载在干净环境验证
-- [ ] 文件关联冷启动与单实例验证
-- [ ] 打印/PDF 双平台验证
+自动化已覆盖（v0.9.0 时点全绿：Vitest 96、Playwright 24、cargo 51）：
+
+- [x] 所有自动化测试通过（单元 / E2E / mock-runtime IPC / 安全语料 / 性能基准）
+- [x] 性能预算达标（100KB 204ms / 搜索 141ms·3ms / 编辑输入 p95 0.32ms；1MB 按 v0.3 修订）
+- [x] 安全语料全部通过（22 项 XSS 回归）
+- [x] 可访问性扫描无 critical/serious（axe，五个关键状态）
+- [x] Tauri 装配层 IPC 集成测试（tauri::test MockRuntime，8 项）
+- [x] Windows 编译交叉检查（x86_64-pc-windows-gnu cargo check 通过）
+- [x] 发布说明、CHANGELOG、版本号一致（0.9.0）
+
+待人工执行（自动化无法替代，见开发计划「待人工事项」）：
+
+- [ ] 双平台手动矩阵（Windows 实机 GUI）
+- [ ] 安装/升级/卸载在干净环境验证（依赖 CI 产出的安装包）
+- [ ] 文件关联冷启动与单实例实机双击验证（macOS 需右键打开绕过 Gatekeeper）
+- [ ] 打印/PDF 双平台验证（macOS 已验，Windows 待）
+- [ ] 冷启动窗口级计时（`tools/measure-startup.sh` 已备好；osascript 需在本机交互终端
+  授权「控制 System Events」后运行，沙箱会话无法点授权弹窗）
+- [ ] 实机 Tauri E2E（tauri-driver 已安装；`safaridriver --enable` 需 sudo 密码，
+  授权后可按 [tauri-driver 文档](https://docs.rs/tauri-driver) 接入 WebDriver 测试）
 - [ ] 已知问题列表评审完成
-- [ ] 发布说明、CHANGELOG、版本号一致
-- [ ] 安装包校验和记录
+- [ ] 安装包校验和记录（release workflow 产出后）
