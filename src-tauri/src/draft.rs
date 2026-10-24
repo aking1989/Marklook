@@ -98,7 +98,7 @@ pub fn cleanup_old_drafts(dir: &Path) -> usize {
 }
 
 /// 确保草稿目录存在并返回其路径（应用数据目录 / drafts）。
-pub fn drafts_dir(app: &tauri::AppHandle) -> Result<PathBuf, CommandError> {
+pub fn drafts_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, CommandError> {
     let dir = app
         .path()
         .app_data_dir()

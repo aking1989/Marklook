@@ -91,9 +91,9 @@ pub fn read_asset_data_url(
     path: String,
     state: State<'_, AppState>,
 ) -> Result<Option<String>, CommandError> {
-    let canonical = state
-        .ensure_allowed(&path)
-        .map_err(|_| CommandError::PathOutsideRoot(path.clone()))?;
+    // 资产授权（与 mdasset 协议一致）：图片允许位于已打开文档/根的同目录树内，
+    // 图片文件本身不一定在 allowlist。
+    let canonical = crate::asset::ensure_asset_allowed(&state, &path)?;
     let mime = crate::asset::mime_of(&canonical);
     let bytes = std::fs::read(&canonical).map_err(CommandError::io)?;
     use base64::Engine;
@@ -102,8 +102,8 @@ pub fn read_asset_data_url(
 }
 
 #[tauri::command]
-pub async fn export_save_html(
-    app: tauri::AppHandle,
+pub async fn export_save_html<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     default_name: String,
     html: String,
     state: State<'_, AppState>,

@@ -4,8 +4,8 @@ use tauri_plugin_dialog::DialogExt;
 use crate::{error::CommandError, state::AppState};
 
 #[tauri::command]
-pub async fn pick_file_and_allow(
-    app: tauri::AppHandle,
+pub async fn pick_file_and_allow<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     state: State<'_, AppState>,
 ) -> Result<Option<String>, CommandError> {
     let picked = app
@@ -38,8 +38,8 @@ pub async fn pick_file_and_allow(
 }
 
 #[tauri::command]
-pub async fn pick_folder_and_allow(
-    app: tauri::AppHandle,
+pub async fn pick_folder_and_allow<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     state: State<'_, AppState>,
 ) -> Result<Option<String>, CommandError> {
     let picked = app.dialog().file().blocking_pick_folder();

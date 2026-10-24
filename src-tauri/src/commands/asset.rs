@@ -32,7 +32,8 @@ fn sanitize_stem(name: &str) -> String {
     let stem: String = name
         .chars()
         .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+            // Unicode 字母数字（含中文）合法；其余（空格、路径分隔、控制字符）替换。
+            if ch.is_alphanumeric() || ch == '-' || ch == '_' {
                 ch
             } else {
                 '-'
@@ -106,12 +107,13 @@ mod tests {
         let doc = dir.path().join("note.md");
         fs::write(&doc, "x").unwrap();
 
+        // Unicode 清洗：中文保留，空格替换为 '-'。
         let result = save_asset_to(&doc, "截图 2024.png", b"png").unwrap();
 
-        assert!(result.absolute_path.ends_with("assets/2024.png"));
-        assert_eq!(result.relative_path, "assets/2024.png");
+        assert!(result.absolute_path.ends_with("assets/截图-2024.png"));
+        assert_eq!(result.relative_path, "assets/截图-2024.png");
         assert_eq!(
-            fs::read(dir.path().join("assets/2024.png")).unwrap(),
+            fs::read(dir.path().join("assets/截图-2024.png")).unwrap(),
             b"png"
         );
     }

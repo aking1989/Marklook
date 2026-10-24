@@ -10,8 +10,8 @@ use crate::{
 pub const FS_CHANGE_EVENT: &str = "fs://change";
 
 #[tauri::command]
-pub fn watch_paths(
-    app: AppHandle,
+pub fn watch_paths<R: tauri::Runtime>(
+    app: AppHandle<R>,
     paths: Vec<String>,
     recursive: bool,
     markdown_only: bool,

@@ -3,8 +3,8 @@ use tauri::{AppHandle, State};
 use crate::{draft, error::CommandError, state::AppState};
 
 #[tauri::command]
-pub fn save_draft(
-    app: AppHandle,
+pub fn save_draft<R: tauri::Runtime>(
+    app: AppHandle<R>,
     path: String,
     content: String,
     baseline_mtime_ms: u64,
@@ -22,8 +22,8 @@ pub fn save_draft(
 }
 
 #[tauri::command]
-pub fn load_draft(
-    app: AppHandle,
+pub fn load_draft<R: tauri::Runtime>(
+    app: AppHandle<R>,
     path: String,
     state: State<'_, AppState>,
 ) -> Result<Option<draft::DraftRecord>, CommandError> {
@@ -35,8 +35,8 @@ pub fn load_draft(
 }
 
 #[tauri::command]
-pub fn clear_draft(
-    app: AppHandle,
+pub fn clear_draft<R: tauri::Runtime>(
+    app: AppHandle<R>,
     path: String,
     state: State<'_, AppState>,
 ) -> Result<(), CommandError> {
@@ -46,7 +46,7 @@ pub fn clear_draft(
 }
 
 #[tauri::command]
-pub fn cleanup_drafts(app: AppHandle) -> Result<usize, CommandError> {
+pub fn cleanup_drafts<R: tauri::Runtime>(app: AppHandle<R>) -> Result<usize, CommandError> {
     Ok(draft::cleanup_old_drafts(&draft::drafts_dir(&app)?))
 }
 
