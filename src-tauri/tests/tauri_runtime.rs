@@ -7,8 +7,8 @@ use tauri::test::{INVOKE_KEY, get_ipc_response, mock_builder, mock_context, noop
 use tauri::{Manager, webview::InvokeRequest};
 use tempfile::tempdir;
 
+use marklook_lib::configure;
 use marklook_lib::state::AppState;
-use marklook_lib::{asset, configure};
 
 fn ipc(cmd: &str, body: serde_json::Value) -> InvokeRequest {
     InvokeRequest {
