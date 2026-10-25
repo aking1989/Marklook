@@ -70,7 +70,7 @@ test("关键界面状态无 critical 可访问性违规", async ({ page }) => {
   await page.getByRole("button", { name: "源码" }).click();
   const editor = page.locator(".cm-content");
   await editor.click();
-  await page.keyboard.press("Meta+End");
+  await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.type("\n本地修改");
   await page.evaluate(() => {
     window.__marklookMock?.externalChange(

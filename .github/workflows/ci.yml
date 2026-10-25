@@ -109,6 +109,30 @@ jobs:
           Copy-Item $dll.FullName target/debug/deps/ -Force
           Get-ChildItem target/debug/deps/WebView2Loader.dll
 
+      # 诊断 STATUS_ENTRYPOINT_NOT_FOUND：列出测试 exe 的导入 DLL 与
+      # runner PATH 上的同名 DLL，确定缺失入口点归属。
+      - name: Diagnose test exe imports (Windows)
+        if: runner.os == 'Windows'
+        working-directory: src-tauri
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem target/debug/deps/marklook_lib-*.exe |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          Write-Host "exe: $($exe.FullName)"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $install = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $dumpbin = Get-ChildItem "$install\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" |
+            Select-Object -First 1
+          Write-Host "=== dumpbin /dependents ==="
+          & $dumpbin /dependents $exe.FullName
+          Write-Host "=== PATH 上的同名 DLL ==="
+          $deps = & $dumpbin /dependents $exe.FullName |
+            Select-String '\.dll' | ForEach-Object { $_.Matches.Value.Trim() }
+          foreach ($dep in $deps) {
+            Get-Command $dep -ErrorAction SilentlyContinue |
+              ForEach-Object { Write-Host "FOUND ON PATH: $($_.Source)" }
+          }
+
       - name: Tests
         working-directory: src-tauri
         run: cargo test

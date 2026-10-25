@@ -44,7 +44,7 @@ test("源码模式下导出先切回阅读渲染", async ({ page }) => {
 
   const editor = page.locator(".cm-content");
   await editor.click();
-  await page.keyboard.press("Meta+End");
+  await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.type("\n导出前的最新编辑");
 
   await page.getByRole("button", { name: "导出" }).click();

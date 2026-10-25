@@ -38,7 +38,7 @@ test("编辑并保存", async ({ page }) => {
 
   const editor = page.locator(".cm-content");
   await editor.click();
-  await page.keyboard.press("Meta+End");
+  await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.type("\n\n保存测试");
 
   await expect(page.getByText("未保存")).toBeVisible();

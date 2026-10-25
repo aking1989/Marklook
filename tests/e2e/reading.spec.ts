@@ -102,7 +102,7 @@ test("排版设置即时生效", async ({ page }) => {
     .toContain("PingFang SC");
 
   // 字号重置。
-  await page.keyboard.press("Meta+0");
+  await page.keyboard.press("ControlOrMeta+0");
   await expect
     .poll(() => root.evaluate((el) => el.style.getPropertyValue("--font-size")))
     .toBe("17px");

@@ -33,7 +33,7 @@ test("脏文档外部修改触发冲突面板并可覆盖", async ({ page }) => 
 
   const editor = page.locator(".cm-content");
   await editor.click();
-  await page.keyboard.press("Meta+End");
+  await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.type("\n本地未保存的修改");
   await expect(page.getByText("未保存", { exact: true })).toBeVisible();
 
@@ -70,7 +70,7 @@ test("冲突面板加载磁盘版本放弃本地修改", async ({ page }) => {
 
   const editor = page.locator(".cm-content");
   await editor.click();
-  await page.keyboard.press("Meta+End");
+  await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.type("\n将要被放弃的本地修改");
   await expect(page.getByText("未保存", { exact: true })).toBeVisible();
 

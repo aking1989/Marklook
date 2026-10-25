@@ -20,7 +20,7 @@ test("崩溃草稿恢复：重新打开时提示并可恢复", async ({ page }) 
 
   const editor = page.locator(".cm-content");
   await editor.click();
-  await page.keyboard.press("Meta+End");
+  await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.type("\n崩溃前未保存的草稿内容");
   await expect(page.getByText("未保存", { exact: true })).toBeVisible();
 
@@ -56,7 +56,7 @@ test("丢弃草稿后不再提示", async ({ page }) => {
 
   const editor = page.locator(".cm-content");
   await editor.click();
-  await page.keyboard.press("Meta+End");
+  await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.type("\n将被丢弃的草稿");
   await page.waitForTimeout(2600);
 
@@ -83,7 +83,7 @@ test("保存成功后草稿被清除", async ({ page }) => {
 
   const editor = page.locator(".cm-content");
   await editor.click();
-  await page.keyboard.press("Meta+End");
+  await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.type("\n保存后不应有草稿");
   await page.waitForTimeout(2600);
 

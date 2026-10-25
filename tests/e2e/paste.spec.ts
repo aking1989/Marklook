@@ -33,7 +33,7 @@ test("粘贴图片写入 assets 并插入 Markdown 语法", async ({ page }) => 
 
   const editor = page.locator(".cm-content");
   await editor.click();
-  await page.keyboard.press("Meta+End");
+  await page.keyboard.press("ControlOrMeta+End");
 
   await pasteImage(page);
 

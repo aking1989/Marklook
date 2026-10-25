@@ -7,11 +7,11 @@ test("模式切换保留撤销历史与光标位置", async ({ page }) => {
 
   const editor = page.locator(".cm-content");
   await editor.click();
-  await page.keyboard.press("Meta+End");
+  await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.type("撤销测试内容");
 
   // 光标移到文档中间（第 12 行附近），验证位置保持。
-  await page.keyboard.press("Meta+Home");
+  await page.keyboard.press("ControlOrMeta+Home");
   for (let index = 0; index < 6; index += 1) {
     await page.keyboard.press("ArrowDown");
   }
@@ -23,11 +23,11 @@ test("模式切换保留撤销历史与光标位置", async ({ page }) => {
   }
 
   // 切换后撤销仍可用：Ctrl/Cmd+Z 撤销输入。
-  await page.keyboard.press("Meta+z");
+  await page.keyboard.press("ControlOrMeta+z");
   await expect(editor).not.toContainText("撤销测试内容");
 
   // 再撤销一次恢复（栈深度足够）。
-  await page.keyboard.press("Meta+Shift+z");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
   await expect(editor).toContainText("撤销测试内容");
 });
 
