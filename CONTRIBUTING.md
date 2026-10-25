@@ -4,12 +4,12 @@
 
 ## 开发环境
 
-| 要求 | 版本 |
-| --- | --- |
-| Node.js | 24+ |
-| pnpm | 12+ |
-| Rust | stable（rustup 安装，`aarch64/x86_64-apple-darwin` 与 `x86_64-pc-windows-msvc`） |
-| 系统 | macOS 需 Xcode Command Line Tools；Windows 需 VS Build Tools（C++）与 WebView2 |
+| 要求    | 版本                                                                             |
+| ------- | -------------------------------------------------------------------------------- |
+| Node.js | 24+                                                                              |
+| pnpm    | 12+                                                                              |
+| Rust    | stable（rustup 安装，`aarch64/x86_64-apple-darwin` 与 `x86_64-pc-windows-msvc`） |
+| 系统    | macOS 需 Xcode Command Line Tools；Windows 需 VS Build Tools（C++）与 WebView2   |
 
 ```bash
 pnpm install

@@ -1,7 +1,22 @@
 {
   "name": "marklook",
-  "private": true,
   "version": "0.9.0",
+  "description": "墨览 Marklook — 以阅读为中心的本地 Markdown 阅读器（Tauri 2 · macOS & Windows）",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aking1989/Marklook.git"
+  },
+  "author": "aking1989",
+  "keywords": [
+    "markdown",
+    "reader",
+    "tauri",
+    "desktop",
+    "chinese",
+    "reading"
+  ],
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
