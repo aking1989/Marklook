@@ -1,80 +1,131 @@
 #!/usr/bin/env bash
-# 冷启动计时（macOS）：启动 release 二进制 → 轮询窗口出现 → 3 次取中位数。
-# 用法：tools/measure-startup.sh [二进制路径]
+# 冷启动计时（macOS）：启动 release 二进制 → 轮询窗口出现 → 多次取中位数。
+# 用法：tools/measure-startup.sh [二进制路径]（RUNS=N 环境变量改次数，默认 3）
 #
-# 说明：窗口出现检测用 System Events（osascript）。若本会话未获得
-# 「控制 System Events」授权，自动降级为进程启动计时（不含 UI 渲染）并在输出中注明。
+# 全部计时在单个 python3 进程内完成（perf_counter 跨进程零点不一致，
+# 旧版跨进程相减会出现负数）；窗口检测经 System Events（未授权时自动降级为
+# 进程启动计时并在输出注明）。轮询粒度受 osascript 单次调用开销（约 30-80ms）限制，
+# 结果为上限估计。
 
 set -euo pipefail
 
 BIN="${1:-src-tauri/target/release/marklook}"
 RUNS="${RUNS:-3}"
-APP_NAME="marklook"
 
 if [[ ! -x "$BIN" ]]; then
   echo "错误：找不到可执行文件 $BIN（先运行 pnpm tauri build --bundles app）" >&2
   exit 1
 fi
 
-# 检测 System Events 是否可用：带 3 秒超时（无授权时 osascript 会挂起等弹窗）。
-WINDOW_CHECK_OK=0
-if command -v gtimeout >/dev/null 2>&1; then
-  gtimeout 3 osascript -e 'tell application "System Events" to count processes' >/dev/null 2>&1 && WINDOW_CHECK_OK=1
-else
-  # macOS 无 gtimeout：用后台 perl 哨兵兜底（3 秒后杀掉 osascript）。
-  if (osascript -e 'tell application "System Events" to count processes' >/dev/null 2>&1 &
-    pid=$!; (sleep 3; kill $pid 2>/dev/null) & wait $pid); then
-    WINDOW_CHECK_OK=1
-  fi
-fi
+exec python3 - "$BIN" "$RUNS" <<'EOF'
+import statistics
+import subprocess
+import sys
+import time
+from typing import Optional
 
-measure_once() {
-  local start_ns end_ms
-  start_ns=$(python3 -c 'import time; print(time.perf_counter_ns())')
+bin_path = sys.argv[1]
+runs = int(sys.argv[2])
+process_name = bin_path.rsplit("/", 1)[-1]
 
-  "$BIN" & local pid=$!
+def window_visible() -> bool:
+    script = (
+        'tell application "System Events" to tell process '
+        f'"{process_name}" to exists window 1'
+    )
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            timeout=2,
+        )
+    except subprocess.TimeoutExpired:
+        return False
+    return result.returncode == 0 and b"true" in result.stdout
 
-  local waited=0
-  while kill -0 "$pid" 2>/dev/null; do
-    if [[ "$WINDOW_CHECK_OK" == "1" ]]; then
-      if osascript -e "tell application \"System Events\" to tell process \"$APP_NAME\" to exists window 1" 2>/dev/null | grep -q true; then
-        break
-      fi
-    else
-      # 降级：进程存活即视为启动（不测 UI）。
-      sleep 0.05
-      break
-    fi
-    sleep 0.02
-    waited=$((waited + 1))
-    if [[ $waited -gt 500 ]]; then break; fi # 10s 超时
-  done
+def system_events_available() -> bool:
+    """探测 System Events 可用性：不可用时 osascript 可能挂起等授权，须超时兜底。"""
+    try:
+        subprocess.run(
+            ["osascript", "-e",
+             'tell application "System Events" to count processes'],
+            capture_output=True,
+            timeout=3,
+        )
+    except subprocess.TimeoutExpired:
+        return False
+    return True
 
-  end_ns=$(python3 -c 'import time; print(time.perf_counter_ns())')
-  python3 -c "print(($end_ns - $start_ns) / 1_000_000)"
-}
+def stop(proc: subprocess.Popen) -> None:
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=2)
 
-echo "== 墨览冷启动计时（$RUNS 次）=="
-if [[ "$WINDOW_CHECK_OK" == "1" ]]; then
-  echo "检测方式：窗口出现（System Events）"
-else
-  echo "检测方式：进程启动（System Events 未授权，不含 UI 渲染时间）"
-fi
+def measure_once(with_window_check: bool) -> Optional[float]:
+    proc = subprocess.Popen(
+        [bin_path],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    start = time.perf_counter_ns()
+    deadline = start + 10_000_000_000  # 10s 超时
+    try:
+        while time.perf_counter_ns() < deadline:
+            if proc.poll() is not None:
+                return None  # 进程提前退出
+            if with_window_check:
+                if window_visible():
+                    return (time.perf_counter_ns() - start) / 1_000_000
+            else:
+                # 降级：无 UI 检测手段，确认进程稳定存活 100ms 即视为启动成功，
+                # 该数值只验证"能启动"，不代表 UI 就绪时间。
+                time.sleep(0.1)
+                if proc.poll() is None:
+                    return (time.perf_counter_ns() - start) / 1_000_000
+            time.sleep(0.01)
+        return None  # 超时
+    finally:
+        stop(proc)
+
+# 探测一次检测方式。
+window_check = system_events_available()
+mode = (
+    "窗口出现（System Events，粒度受 osascript 轮询开销限制，约 ±50ms）"
+    if window_check
+    else "进程存活 100ms（System Events 未授权：仅验证可启动，不代表 UI 就绪时间；"
+         "请在交互终端重跑以获得窗口级计时）"
+)
+
+print(f"== 墨览冷启动计时（{runs} 次）==")
+print(f"检测方式：{mode}")
 
 # 预热一次（磁盘缓存），不计入。
-"$BIN" >/dev/null 2>&1 & sleep 1.5; pkill -x "$APP_NAME" 2>/dev/null || true; sleep 0.5
+warmup = subprocess.Popen(
+    [bin_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+)
+time.sleep(1.5)
+stop(warmup)
+time.sleep(0.5)
 
-results=()
-for _ in $(seq "$RUNS"); do
-  ms=$(measure_once)
-  results+=("$ms")
-  printf '第 %d 次：%s ms\n' "${#results[@]}" "$(python3 -c "print(f'{$ms:.0f}')")"
-  pkill -x "$APP_NAME" 2>/dev/null || true
-  sleep 0.5
-done
+values: list[float] = []
+for index in range(runs):
+    elapsed = measure_once(window_check)
+    if elapsed is None:
+        print(f"第 {index + 1} 次：失败（超时或进程提前退出）")
+        continue
+    values.append(elapsed)
+    print(f"第 {index + 1} 次：{elapsed:.0f} ms")
 
-python3 - "${results[@]}" <<'EOF'
-import statistics, sys
-values = [float(v) for v in sys.argv[1:]]
-print(f"中位数：{statistics.median(values):.0f} ms（预算：macOS < 1000 ms）")
+if values:
+    median = statistics.median(values)
+    budget = 1000
+    verdict = "达标" if median < budget else "超出预算"
+    print(f"中位数：{median:.0f} ms（预算：macOS < {budget} ms，{verdict}）")
+else:
+    print("无有效样本")
+    sys.exit(1)
 EOF

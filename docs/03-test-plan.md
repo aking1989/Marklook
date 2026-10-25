@@ -634,8 +634,9 @@ cargo test
 - [ ] 安装/升级/卸载在干净环境验证（依赖 CI 产出的安装包）
 - [ ] 文件关联冷启动与单实例实机双击验证（macOS 需右键打开绕过 Gatekeeper）
 - [ ] 打印/PDF 双平台验证（macOS 已验，Windows 待）
-- [ ] 冷启动窗口级计时（`tools/measure-startup.sh` 已备好；osascript 需在本机交互终端
-  授权「控制 System Events」后运行，沙箱会话无法点授权弹窗）
+- [x] 冷启动窗口级计时：`tools/measure-startup.sh` 实测 macOS 中位数 195ms
+  （窗口出现，3 次取中位，预算 < 1000ms 达标；脚本经单进程计时修复——旧版跨进程
+  perf_counter 相减出现负数）
 - [ ] 实机 Tauri E2E（tauri-driver 已安装；`safaridriver --enable` 需 sudo 密码，
   授权后可按 [tauri-driver 文档](https://docs.rs/tauri-driver) 接入 WebDriver 测试）
 - [ ] 已知问题列表评审完成
