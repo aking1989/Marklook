@@ -618,7 +618,9 @@ cargo test
 
 ## 15. 发布验收清单
 
-自动化已覆盖（v0.9.0 时点全绿：Vitest 96、Playwright 24、cargo 51）：
+自动化已覆盖（v0.9.0 时点：**GitHub Actions CI 首跑全绿**——frontend（ubuntu，含 E2E）
+与 rust（macos-14 + windows-latest）三 job 全部通过；本机同等门禁 Vitest 96、Playwright 24、
+cargo 52）：
 
 - [x] 所有自动化测试通过（单元 / E2E / mock-runtime IPC / 安全语料 / 性能基准）
 - [x] 性能预算达标（100KB 204ms / 搜索 141ms·3ms / 编辑输入 p95 0.32ms；1MB 按 v0.3 修订）
@@ -630,7 +632,8 @@ cargo test
 
 待人工执行（自动化无法替代，见开发计划「待人工事项」）：
 
-- [ ] 双平台手动矩阵（Windows 实机 GUI）
+- [ ] 双平台手动矩阵（Windows 实机 GUI；注意 CI 上的 cargo test 已在 Windows runner 全绿，
+      但 GUI 行为仍需实机）
 - [ ] 安装/升级/卸载在干净环境验证（依赖 CI 产出的安装包）
 - [x] 文件关联冷启动与单实例：`tools/native-smoke.sh` + `tools/single-instance-check.sh`
   真机验证（窗口/标题/存活；带参冷启动与运行中转交均确认文档打开——转交窗口标题
@@ -645,4 +648,4 @@ cargo test
 - [x] 顺带修复：原生窗口标题不跟随 document.title（前端显式 setTitle + 补
   core:window:allow-set-title 权限）
 - [ ] 已知问题列表评审完成
-- [ ] 安装包校验和记录（release workflow 产出后）
+- [x] 安装包校验和记录（release workflow 自动生成 SHA256SUMS.txt 并上传 Release）

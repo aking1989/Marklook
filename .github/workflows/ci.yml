@@ -128,6 +128,16 @@ jobs:
           Write-Host "PATH 残留 JDK: $(($env:PATH -split ';' | Where-Object { $_ -match 'Java_|jdk' }).Count)"
           cargo test
 
+      - name: Tests (Windows)
+        if: runner.os == 'Windows'
+        working-directory: src-tauri
+        shell: pwsh
+        run: |
+          $env:PATH = ($env:PATH -split ';' |
+            Where-Object { $_ -and $_ -notmatch 'Java_|jdk|temurin' }) -join ';'
+          Write-Host "PATH 残留 JDK: $(($env:PATH -split ';' | Where-Object { $_ -match 'Java_|jdk' }).Count)"
+          cargo test
+
       # 诊断 STATUS_ENTRYPOINT_NOT_FOUND（0xc0000139）：cargo test 编译成功后
       # exe 才存在，故置于 Tests 之后且 always()（失败时也执行）。
       # 列出测试 exe 的导入 DLL，并找 runner 上每个依赖 DLL 的实际解析位置
