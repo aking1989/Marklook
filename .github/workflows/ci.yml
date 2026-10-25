@@ -109,30 +109,45 @@ jobs:
           Copy-Item $dll.FullName target/debug/deps/ -Force
           Get-ChildItem target/debug/deps/WebView2Loader.dll
 
-      # 诊断 STATUS_ENTRYPOINT_NOT_FOUND：列出测试 exe 的导入 DLL 与
-      # runner PATH 上的同名 DLL，确定缺失入口点归属。
+      - name: Tests
+        working-directory: src-tauri
+        run: cargo test
+
+      # 诊断 STATUS_ENTRYPOINT_NOT_FOUND（0xc0000139）：cargo test 编译成功后
+      # exe 才存在，故置于 Tests 之后且 always()（失败时也执行）。
+      # 列出测试 exe 的导入 DLL，并找 runner 上每个依赖 DLL 的实际解析位置
+      # 与版本，确定是哪个 DLL 缺入口点。
       - name: Diagnose test exe imports (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && always()
         working-directory: src-tauri
         shell: pwsh
         run: |
           $exe = Get-ChildItem target/debug/deps/marklook_lib-*.exe |
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          Write-Host "exe: $($exe.FullName)"
+          Write-Host "exe: $($exe.FullName) size=$($exe.Length)"
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $install = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           $dumpbin = Get-ChildItem "$install\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" |
             Select-Object -First 1
           Write-Host "=== dumpbin /dependents ==="
-          & $dumpbin /dependents $exe.FullName
-          Write-Host "=== PATH 上的同名 DLL ==="
-          $deps = & $dumpbin /dependents $exe.FullName |
-            Select-String '\.dll' | ForEach-Object { $_.Matches.Value.Trim() }
+          $dumpbinOut = & $dumpbin /dependents $exe.FullName
+          $dumpbinOut
+          $deps = $dumpbinOut | Select-String '\S+\.dll' |
+            ForEach-Object { $_.Matches.Value.Trim() } | Sort-Object -Unique
+          Write-Host "=== 依赖 DLL 的解析位置 ==="
           foreach ($dep in $deps) {
-            Get-Command $dep -ErrorAction SilentlyContinue |
-              ForEach-Object { Write-Host "FOUND ON PATH: $($_.Source)" }
+            $cmd = Get-Command $dep -ErrorAction SilentlyContinue
+            if ($cmd) {
+              $v = (Get-Item $cmd.Source).VersionInfo.FileVersion
+              Write-Host "PATH-RESOLVED: $dep -> $($cmd.Source) (v$v)"
+            } else {
+              $inDeps = Test-Path "target/debug/deps/$dep"
+              Write-Host "NOT-ON-PATH: $dep (in deps dir: $inDeps)"
+            }
           }
-
-      - name: Tests
+          Write-Host "=== deps 目录中的 DLL ==="
+          Get-ChildItem target/debug/deps/*.dll | ForEach-Object {
+            Write-Host "$($_.Name) $($_.Length) $($_.LastWriteTime)"
+          }      - name: Tests
         working-directory: src-tauri
         run: cargo test
