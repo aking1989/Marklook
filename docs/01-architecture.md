@@ -145,34 +145,29 @@ Typora 的按行渲染是自研、闭源且复杂度极高。本产品把问题�
 
 ### 6.1 架构图
 
-```text
-┌──────────────────────────────────────────────────────────────────┐
-│                        WebView（UI 层，无 Node 权限）              │
-│  React 19 + TypeScript                                           │
-│                                                                  │
-│  ┌───────────┐  ┌───────────┐  ┌────────────┐  ┌─────────────┐  │
-│  │ Reader    │  │ Editor    │  │ Workspace  │  │ Settings/UI │  │
-│  │ 渲染 HTML │  │ CM6 源码  │  │ 树/搜索/大纲│  │ 菜单/通知   │  │
-│  └─────┬─────┘  └─────┬─────┘  └─────┬──────┘  └──────┬──────┘  │
-│        └──────────────┴──────────────┴────────────────┘          │
-│                              │                                   │
-│                    Platform Adapter（接口层）                     │
-└──────────────────────────────┼───────────────────────────────────┘
-                               │ Tauri IPC（invoke / emit）
-┌──────────────────────────────┴───────────────────────────────────┐
-│                       Rust Core（Tauri 2）                       │
-│                                                                  │
-│  allowlist 校验 │ 文档 I/O │ 目录扫描 │ 文件监听 │ 打印 │ 导出    │
-│  自定义资源协议 mdasset:// │ 草稿存储 │ 路径与编码处理             │
-│                                                                  │
-│  插件：dialog(原生对话框) · store(设置) · window-state ·           │
-│        single-instance                                           │
-└──────────────────────────────┬───────────────────────────────────┘
-                               │
-          ┌────────────────────┴────────────────────┐
-          │                                         │
-   macOS: WKWebView                          Windows: WebView2
-   (WebKit)                                  (Chromium)
+```mermaid
+flowchart TB
+    subgraph WEBVIEW["WebView（UI 层，无 Node 权限）· React 19 + TypeScript"]
+        READER["Reader<br/>渲染 HTML"]
+        EDITOR["Editor<br/>CM6 源码"]
+        WORKSPACE["Workspace<br/>树/搜索/大纲"]
+        SETTINGS["Settings/UI<br/>菜单/通知"]
+        PLATFORM["Platform Adapter（接口层）"]
+        READER --> PLATFORM
+        EDITOR --> PLATFORM
+        WORKSPACE --> PLATFORM
+        SETTINGS --> PLATFORM
+    end
+    PLATFORM -- "Tauri IPC（invoke / emit）" --> CORE
+    subgraph CORE["Rust Core（Tauri 2）"]
+        direction LR
+        CORE1["allowlist 校验<br/>文档 I/O<br/>目录扫描"]
+        CORE2["文件监听<br/>打印 / 导出"]
+        CORE3["mdasset:// 资源协议<br/>草稿存储<br/>路径与编码"]
+        CORE4["插件：dialog · store ·<br/>window-state · single-instance"]
+    end
+    CORE --> MAC["macOS<br/>WKWebView（WebKit）"]
+    CORE --> WIN["Windows<br/>WebView2（Chromium）"]
 ```
 
 ### 6.2 分层职责
@@ -273,70 +268,47 @@ marklook/
 
 ### 8.1 打开并阅读
 
-```text
-用户双击 .md / 菜单打开
-        │
-        ▼
-Rust：校验路径 → 加入 allowlist → 读取字节
-        │  返回 { content, mtimeMs, size, eol, bom }
-        ▼
-documentStore：状态 loading → clean，记录基准 mtime
-        │
-        ▼
-renderMarkdown(content, docDir, options)  ← 纯函数
-        │  返回 { html, outline, frontmatter, meta }
-        ▼
-ReaderView：innerHTML + 事件委托
-        │
-        ▼
-滚动映射建立 line-map（data-line-start/end）
+```mermaid
+flowchart TD
+    A["用户双击 .md / 菜单打开"] --> B["Rust：校验路径 → 加入 allowlist → 读取字节"]
+    B -- "返回 content / mtimeMs / size / eol / bom" --> C["documentStore：loading → clean，记录基准 mtime"]
+    C --> D["renderMarkdown(content, docDir, options)（纯函数）"]
+    D -- "返回 html / outline / frontmatter / meta" --> E["ReaderView：innerHTML + 事件委托"]
+    E --> F["滚动映射建立 line-map（data-line-start/end）"]
 ```
 
 ### 8.2 编辑并保存
 
-```text
-Cmd/Ctrl+E
-   │ 阅读位置（顶部行）→ CodeMirror scrollIntoView
-   ▼
-编辑：CM6 为内容的权威来源，变更去抖镜像到 store
-   │
-   ├── Cmd/Ctrl+S / 自动保存
-   ▼
-write_document(path, content, expectedMtime, force=false)
-   │
-   ├── mtime 一致 → 临时文件 + fsync + rename → 返回新 mtime
-   └── mtime 不一致 → CONFLICT → 前端弹出解决面板
+```mermaid
+flowchart TD
+    A["Cmd/Ctrl+E<br/>阅读位置（顶部行）→ CodeMirror scrollIntoView"] --> B["编辑：CM6 为内容的权威来源<br/>变更去抖镜像到 store"]
+    B -- "Cmd/Ctrl+S / 自动保存" --> C["write_document(path, content, expectedMtime, force=false)"]
+    C -- "mtime 一致" --> D["临时文件 + fsync + rename<br/>返回新 mtime"]
+    C -- "mtime 不一致" --> E["CONFLICT<br/>前端弹出解决面板"]
 ```
 
 ### 8.3 外部修改
 
-```text
-notify 事件（去抖 300ms）
-   │
-   ▼
-前端收到 fs://change
-   │
-   ├── 非当前文件 → 更新文件树/搜索索引（去抖）
-   └── 当前文件 → stat + 读内容
-          │
-          ├── 本地无未保存修改 → 静默重载，保持阅读行
-          └── 本地有未保存修改
-                 ├── 磁盘内容 == 本地内容 → 清除脏状态
-                 └── 不同 → conflict 状态，显示解决条
+```mermaid
+flowchart TD
+    A["notify 事件（去抖 300ms）"] --> B["前端收到 fs://change"]
+    B --> C{"是当前文件？"}
+    C -- "否" --> D["更新文件树/搜索索引（去抖）"]
+    C -- "是" --> E["stat + 读内容"]
+    E --> F{"本地有未保存修改？"}
+    F -- "否" --> G["静默重载，保持阅读行"]
+    F -- "是" --> H{"磁盘内容 == 本地内容？"}
+    H -- "相同" --> I["清除脏状态"]
+    H -- "不同" --> J["conflict 状态，显示解决条"]
 ```
 
 ### 8.4 导出
 
-```text
-当前内容（编辑态取 CM 文档，阅读态取 store）
-        │
-        ▼
-同一渲染管线 → RenderResult.html
-        │
-        ├── HTML：内联 CSS、KaTeX 字体、Shiki 样式、图片 base64/同目录资源
-        │         → Rust 打开保存对话框并写入
-        └── PDF：确保阅读视图已渲染 → Rust WebviewWindow::print()
-                  → 系统打印对话框 → 另存为 PDF
+```mermaid
+flowchart TD
+    A["当前内容（编辑态取 CM 文档，阅读态取 store）"] --> B["同一渲染管线 → RenderResult.html"]
+    B -- "HTML" --> C["内联 CSS / KaTeX 字体 / Shiki 样式 / 图片 base64<br/>Rust 打开保存对话框并写入"]
+    B -- "PDF" --> D["确保阅读视图已渲染<br/>Rust WebviewWindow::print()<br/>系统打印对话框 → 另存为 PDF"]
 ```
 
 ---
@@ -345,24 +317,14 @@ notify 事件（去抖 300ms）
 
 ### 9.1 文档状态机
 
-```text
-             OPEN                LOADED
-  empty ──────────▶ loading ──────────────▶ clean
-                                              │
-                                    EDIT / 修改内容
-                                              ▼
-                                           ┌───────┐
-                              SAVE_OK      │ dirty │
-                         ┌──────────────────┤       │
-                         │                  └───┬───┘
-                         ▼                      │ 外部内容不同
-                      clean                     ▼
-                                           ┌──────────┐
-                                           │ conflict │
-                                           └────┬─────┘
-                              覆盖 / 重载 / 另存为│
-                                                ▼
-                                           clean / 新文档
+```mermaid
+stateDiagram-v2
+    [*] --> loading: OPEN
+    loading --> clean: LOADED
+    clean --> dirty: EDIT / 修改内容
+    dirty --> clean: SAVE_OK
+    dirty --> conflict: 外部内容不同
+    conflict --> clean: 覆盖 / 重载 / 另存为
 ```
 
 补充规则：
