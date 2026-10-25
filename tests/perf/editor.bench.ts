@@ -77,5 +77,5 @@ describe("CodeMirror 编辑输入性能（jsdom）", () => {
 
     view.destroy();
     host.remove();
-  });
+  }, 120_000); // CI 机器上 jsdom 创建 1MB EditorView 超过默认 5s
 });

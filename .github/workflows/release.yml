@@ -92,15 +92,26 @@ jobs:
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
     steps:
+      # gh 需要在 git 仓库内运行（推断 repo），无 checkout 会报 not a git repository。
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: bundles
           merge-multiple: true
+
+      - name: Record checksums
+        run: |
+          cd bundles
+          shasum -a 256 * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          gh release create "$TAG" --title "墨览 Marklook $TAG" --generate-notes || true
-          gh release upload "$TAG" bundles/* --clobber
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --title "墨览 Marklook $TAG" --generate-notes || true
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" \
+            bundles/* bundles/SHA256SUMS.txt --clobber

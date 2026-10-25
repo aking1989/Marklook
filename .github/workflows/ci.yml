@@ -92,6 +92,17 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
 
+      # wry 在 Windows 动态加载 WebView2Loader.dll（位于 target/debug/），
+      # 测试 exe 在 target/debug/deps/，DLL 搜索不含该目录导致
+      # STATUS_ENTRYPOINT_NOT_FOUND；复制到 exe 同目录（搜索优先级最高）。
+      - name: Stage WebView2Loader.dll next to test binaries (Windows)
+        if: runner.os == 'Windows'
+        working-directory: src-tauri
+        shell: pwsh
+        run: |
+          Copy-Item target/debug/WebView2Loader.dll target/debug/deps/ -Force
+          Get-ChildItem target/debug/deps/WebView2Loader.dll
+
       - name: Tests
         working-directory: src-tauri
         run: cargo test
