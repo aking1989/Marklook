@@ -632,12 +632,17 @@ cargo test
 
 - [ ] 双平台手动矩阵（Windows 实机 GUI）
 - [ ] 安装/升级/卸载在干净环境验证（依赖 CI 产出的安装包）
-- [ ] 文件关联冷启动与单实例实机双击验证（macOS 需右键打开绕过 Gatekeeper）
+- [x] 文件关联冷启动与单实例：`tools/native-smoke.sh` + `tools/single-instance-check.sh`
+  真机验证（窗口/标题/存活；带参冷启动与运行中转交均确认文档打开——转交窗口标题
+  「pdf-check · 墨览」）。双击 .md 走 Gatekeeper 的部分仍需安装包环境。
 - [ ] 打印/PDF 双平台验证（macOS 已验，Windows 待）
 - [x] 冷启动窗口级计时：`tools/measure-startup.sh` 实测 macOS 中位数 195ms
   （窗口出现，3 次取中位，预算 < 1000ms 达标；脚本经单进程计时修复——旧版跨进程
   perf_counter 相减出现负数）
-- [ ] 实机 Tauri E2E（tauri-driver 已安装；`safaridriver --enable` 需 sudo 密码，
-  授权后可按 [tauri-driver 文档](https://docs.rs/tauri-driver) 接入 WebDriver 测试）
+- [x] 原生冒烟（`tools/native-smoke.sh`）：tauri-driver 不支持 macOS（仅 Windows/Linux，
+  运行时硬编码），改用 Accessibility API 冒烟（窗口/标题/原生元素/存活）；DOM 级交互由
+  Mock E2E 与 mock-runtime IPC 测试覆盖。DOM 级原生自动化如需，走 Appium + XCUITest（重）
+- [x] 顺带修复：原生窗口标题不跟随 document.title（前端显式 setTitle + 补
+  core:window:allow-set-title 权限）
 - [ ] 已知问题列表评审完成
 - [ ] 安装包校验和记录（release workflow 产出后）

@@ -23,7 +23,7 @@ import {
   waitForRenderedFigures,
 } from "./features/export/exportHtml";
 import { renderMarkdown } from "./markdown/pipeline";
-import { PlatformError, platform } from "./platform";
+import { isTauriRuntime, PlatformError, platform } from "./platform";
 import { useDocumentStore, type DocStatus } from "./stores/documentStore";
 import { useRecentsStore } from "./stores/recentsStore";
 import {
@@ -265,7 +265,14 @@ export default function App() {
   }, [theme, fontSize, lineHeight, contentWidth, readingFont]);
 
   useEffect(() => {
-    document.title = render?.title ? `${render.title} · 墨览` : "墨览";
+    const title = render?.title ? `${render.title} · 墨览` : "墨览";
+    document.title = title;
+    // 原生窗口标题不自动跟随 document.title，显式同步（Mock 环境无 Tauri API）。
+    if (isTauriRuntime) {
+      void import("@tauri-apps/api/window").then(({ getCurrentWindow }) =>
+        getCurrentWindow().setTitle(title),
+      );
+    }
   }, [render?.title]);
 
   // 远程图片策略影响渲染产物：设置变化时对当前内容重渲染。

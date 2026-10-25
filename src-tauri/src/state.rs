@@ -54,12 +54,26 @@ impl AppState {
         self.force_close.swap(false, Ordering::SeqCst)
     }
 
+    /// 取出待打开路径并放行：冷启动/单实例转交的文件不在 allowlist 内，
+    /// 若不放行，前端 read_document 会被 PATH_OUTSIDE_ROOT 拒绝。
+    /// 无法 canonicalize（不存在等）的路径原样返回，由前端报错。
     pub fn take_pending_open(&self) -> Vec<String> {
-        self.pending_open
+        let paths: Vec<PathBuf> = self
+            .pending_open
             .write()
             .expect("pending_open poisoned")
             .drain(..)
-            .map(|path| path.to_string_lossy().into_owned())
+            .collect();
+
+        paths
+            .into_iter()
+            .map(|path| match dunce::canonicalize(&path) {
+                Ok(canonical) => {
+                    self.allow_file(canonical.clone());
+                    canonical.to_string_lossy().into_owned()
+                }
+                Err(_) => path.to_string_lossy().into_owned(),
+            })
             .collect()
     }
 

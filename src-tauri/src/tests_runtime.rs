@@ -153,6 +153,33 @@ fn take_pending_open_returns_and_clears() {
     assert_eq!(second, serde_json::json!([]));
 }
 
+/// 文件关联冷启动全链路：转交路径经 take_pending_open 后必须已进入 allowlist，
+/// 前端随后的 read_document 不能被 PATH_OUTSIDE_ROOT 拒绝（回归修复）。
+#[test]
+fn pending_open_paths_are_allowed_for_read() {
+    let (app, window) = build_app();
+    let dir = tempdir().unwrap();
+    let doc = dir.path().join("double-clicked.md");
+    fs::write(&doc, "双击打开的内容").unwrap();
+
+    // 模拟单实例/冷启动转交（路径未经对话框授权）。
+    app.state::<AppState>()
+        .push_pending_open(vec![std::path::PathBuf::from(&doc)]);
+
+    let pending = call(&window, "take_pending_open", serde_json::json!({}))
+        .expect("take_pending_open 应成功");
+    let path = pending.as_array().unwrap()[0].as_str().unwrap();
+
+    let read = call(
+        &window,
+        "read_document",
+        serde_json::json!({ "path": path }),
+    )
+    .expect("转交文件 read_document 应已放行");
+
+    assert_eq!(read["content"], "双击打开的内容");
+}
+
 #[test]
 fn scan_vault_returns_camel_case_tree_entries() {
     let (app, window) = build_app();

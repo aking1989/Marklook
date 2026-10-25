@@ -103,15 +103,23 @@ pub fn run() {
     configure(
         tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             // 第二个实例启动：把命令行里的 .md 路径转交给首实例。
+            // 转交文件不经对话框，必须先加入 allowlist，否则前端 read_document
+            // 会被 PATH_OUTSIDE_ROOT 拒绝（冷启动由 take_pending_open 兜底，
+            // 运行中转交走这里）。
             let markdown_paths = collect_markdown_args(argv);
             let state = app.state::<AppState>();
-            state.push_pending_open(
-                markdown_paths
-                    .iter()
-                    .map(std::path::PathBuf::from)
-                    .collect(),
-            );
-            let _ = app.emit("app://open-paths", markdown_paths);
+            let resolved: Vec<String> = markdown_paths
+                .into_iter()
+                .map(|path| match dunce::canonicalize(&path) {
+                    Ok(canonical) => {
+                        state.allow_file(canonical.clone());
+                        canonical.to_string_lossy().into_owned()
+                    }
+                    Err(_) => path,
+                })
+                .collect();
+            state.push_pending_open(resolved.iter().map(std::path::PathBuf::from).collect());
+            let _ = app.emit("app://open-paths", resolved);
 
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_focus();
