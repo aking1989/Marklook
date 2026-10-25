@@ -1,15 +1,12 @@
-mod asset;
+pub mod asset;
 mod commands;
 mod draft;
 mod error;
 mod io;
 mod menu;
-mod state;
+pub mod state;
 mod vault;
 mod watch;
-
-#[cfg(test)]
-mod tests_runtime;
 
 use state::AppState;
 use tauri::{Emitter, Manager};
@@ -36,7 +33,7 @@ where
 
 /// 应用装配（泛型 Runtime，不含单实例插件——其状态是进程级的，
 /// mock-runtime 集成测试同进程多次构建会冲突，故由 run() 单独附加）。
-fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

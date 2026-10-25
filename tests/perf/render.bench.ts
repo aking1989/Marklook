@@ -62,7 +62,7 @@ describe("渲染性能基准（M1 验收）", () => {
       `[bench] 100KB 文档热渲染均值 ${elapsed.toFixed(1)}ms（限额 ${limit}ms，enableHighlight=false）`,
     );
     expect(elapsed).toBeLessThan(limit);
-  });
+  }, 120_000); // CI 冷渲染首次懒加载 KaTeX 模块超默认 5s
 
   // CI runner 速度不代表用户机器（实测 CI 49s vs 本机 9.3s），在 CI 上跳过；
   // 防退化价值由本地运行承担。
