@@ -100,7 +100,13 @@ jobs:
         working-directory: src-tauri
         shell: pwsh
         run: |
-          Copy-Item target/debug/WebView2Loader.dll target/debug/deps/ -Force
+          # webview2-com-sys 把 dll 复制到其 OUT_DIR（build/webview2-com-sys-*/out），
+          # 不在 target/debug 根目录；从 build 目录递归找到后放入 deps（exe 同目录，
+          # DLL 搜索优先级最高，覆盖 runner PATH 上的旧版本）。
+          $dll = Get-ChildItem -Path target/debug/build -Recurse -Filter WebView2Loader.dll |
+            Select-Object -First 1
+          if (-not $dll) { throw "WebView2Loader.dll not found under target/debug/build" }
+          Copy-Item $dll.FullName target/debug/deps/ -Force
           Get-ChildItem target/debug/deps/WebView2Loader.dll
 
       - name: Tests

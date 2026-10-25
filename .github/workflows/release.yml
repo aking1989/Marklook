@@ -106,12 +106,13 @@ jobs:
           shasum -a 256 * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Create GitHub Release
+      # 一步式创建并上传资产（create 与 upload 分离时 GitHub 聚合延迟会 404）；
+      # release 已存在（重跑）时 create 失败，退化为仅上传并 clobber。
+      - name: Create GitHub Release with assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --title "墨览 Marklook $TAG" --generate-notes || true
-          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" \
-            bundles/* bundles/SHA256SUMS.txt --clobber
+            --title "墨览 Marklook $TAG" --generate-notes bundles/* || \
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber bundles/*
