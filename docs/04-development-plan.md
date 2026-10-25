@@ -33,12 +33,23 @@ Windows 实机 GUI 矩阵、安装包安装验证、一周狗粮后发布 v1.0.0
 
 ## 2. 里程碑总览
 
-```text
-W1        W2        W3        W4        W5        W6        W7
-│ M0 骨架 │ M1 阅读 │ M2 工作区│ M3 编辑 │ M4 发布 │ M5 质量 │ 缓冲/发布
-│  + PDF  │         │         │         │  工程   │         │
-└─────────┴─────────┴─────────┴─────────┴─────────┴─────────┴────────▶
-   alpha               beta                RC                v1.0
+```mermaid
+gantt
+    dateFormat YYYY-MM-DD
+    axisFormat %m-%d
+    section 里程碑
+    M0 骨架与验证（+PDF）: m0, 2026-10-26, 3d
+    M1 阅读体验: m1, after m0, 4d
+    M2 工作区: m2, after m1, 5d
+    M3 源码编辑: m3, after m2, 3d
+    M4 发布工程: m4, after m3, 4d
+    M5 质量与发布: m5, after m4, 3d
+    section 版本
+    v0.1.0 alpha: milestone, m_alpha, after m1, 0d
+    v0.2.0 beta: milestone, m_beta, after m2, 0d
+    v0.9.0 RC: milestone, m_rc, after m4, 0d
+    缓冲/狗粮: buffer, after m5, 5d
+    v1.0.0: milestone, m_rel, after buffer, 0d
 ```
 
 | 里程碑 | 目标 | 工期 | 依赖 | 退出标准 |
@@ -314,9 +325,11 @@ W1        W2        W3        W4        W5        W6        W7
 
 ## 6. 关键路径与并行
 
-```text
-T0.1 → T0.5 → T0.6 → T1.1 → T1.2 → T2.1 → T2.2 → T3.1 → T4.1 → T4.4 → T4.5 → M5 → 发布
-                 ↘ T1.3 ↗        ↘ T2.3 → T2.4 ↗
+```mermaid
+flowchart LR
+    T01["T0.1 脚手架"] --> T05["T0.5 Rust IO"] --> T06["T0.6 最小闭环"] --> T11["T1.1 渲染管线"] --> T12["T1.2 数学/高亮/Mermaid"] --> T21["T2.1 扫描与文件树"] --> T22["T2.2 搜索"] --> T31["T3.1 CodeMirror"] --> T41["T4.1 HTML 导出"] --> T44["T4.4 文件关联"] --> T45["T4.5 打包"] --> M5["M5 质量与发布"] --> REL["发布 v1.0"]
+    T11 --> T13["T1.3 排版设置"] --> T21
+    T21 --> T23["T2.3 文件监听"] --> T24["T2.4 冲突与自动保存"] --> T31
 ```
 
 - **关键路径**：脚手架 → IO → 最小闭环 → 渲染管线 → 搜索/工作区 → 编辑器 → 导出/文件关联 → 打包。
