@@ -1367,13 +1367,15 @@ export function buildOutlineTree(items: OutlineItem[]): OutlineNode[] {
 
 ### 10.1 架构
 
-```text
-主线程                         Worker
-  │  scan_vault(with_content)     │
-  │ ────── 批量文档 ────────────▶ │ MiniSearch.build / add
-  │ ◀───── progress ───────────── │
-  │ ────── query ───────────────▶ │ search
-  │ ◀───── results ────────────── │
+```mermaid
+sequenceDiagram
+    participant M as 主线程
+    participant W as Worker
+    M->>W: scan_vault(with_content) 批量文档
+    W->>W: MiniSearch.build / add（分批 100 篇）
+    W-->>M: progress（indexed / total）
+    M->>W: query
+    W-->>M: results（hits + tookMs）
 ```
 
 - 索引只存在于 Worker 内存，不落盘（v1）。
@@ -2116,14 +2118,15 @@ tauri::Builder::default()
 
 ### 15.5 启动时序
 
-```text
-Rust: 初始化日志 → 插件 → 菜单 → 窗口（visible=false）→ 读取 argv/Opened
-  │
-前端: 加载设置 → 应用主题 → 渲染骨架 → invoke("frontend_ready")
-  │
-Rust: 窗口 show() → 发送待打开路径
-  │
-前端: 恢复工作区 → 打开待处理文件 → 空闲时预加载编辑器 chunk
+```mermaid
+sequenceDiagram
+    participant R as Rust
+    participant F as 前端
+    R->>R: 初始化日志 → 插件 → 菜单 → 窗口（visible=false）→ 读取 argv/Opened
+    F->>F: 加载设置 → 应用主题 → 渲染骨架
+    F->>R: invoke("frontend_ready")
+    R->>F: 窗口 show() + 发送待打开路径
+    F->>F: 恢复工作区 → 打开待处理文件 → 空闲时预加载编辑器 chunk
 ```
 
 窗口隐藏启动可避免白屏闪烁；若主题为暗色，`backgroundColor` 使用暗色底。
