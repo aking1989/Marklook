@@ -218,10 +218,10 @@ mod tests {
 
         let outcome = scan_vault(dir.path(), false).unwrap();
 
-        let paths: Vec<&str> = outcome
+        let paths: Vec<String> = outcome
             .entries
             .iter()
-            .map(|entry| entry.path.as_str())
+            .map(|entry| entry.path.replace('\\', "/"))
             .collect();
         assert!(paths.iter().any(|p| p.ends_with("a.md")));
         assert!(paths.iter().any(|p| p.ends_with("sub")));

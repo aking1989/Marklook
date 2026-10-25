@@ -110,10 +110,12 @@ mod tests {
         // Unicode 清洗：中文保留，空格替换为 '-'。
         let result = save_asset_to(&doc, "截图 2024.png", b"png").unwrap();
 
-        assert!(result.absolute_path.ends_with("assets/截图-2024.png"));
+        // Windows 分隔符为 '\'，统一为 '/' 后断言。
+        let normalized = result.absolute_path.replace('\\', "/");
+        assert!(normalized.ends_with("assets/截图-2024.png"));
         assert_eq!(result.relative_path, "assets/截图-2024.png");
         assert_eq!(
-            fs::read(dir.path().join("assets/截图-2024.png")).unwrap(),
+            fs::read(dir.path().join("assets").join("截图-2024.png")).unwrap(),
             b"png"
         );
     }
