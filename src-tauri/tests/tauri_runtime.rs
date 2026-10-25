@@ -126,11 +126,16 @@ fn read_write_document_round_trip_via_ipc() {
 #[test]
 fn unregistered_paths_rejected_with_code() {
     let (_app, window) = build_app();
+    // 用平台无关的"存在但未授权"文件（/etc/passwd 在 Windows 上不存在，
+    // canonicalize 先失败会返回 NOT_FOUND 而非 PATH_OUTSIDE_ROOT）。
+    let outside = tempdir().unwrap();
+    let secret = outside.path().join("secret.md");
+    fs::write(&secret, "secret").unwrap();
 
     let error = call(
         &window,
         "read_document",
-        serde_json::json!({ "path": "/etc/passwd" }),
+        serde_json::json!({ "path": secret.to_string_lossy() }),
     )
     .expect_err("未授权路径应被拒绝");
 
