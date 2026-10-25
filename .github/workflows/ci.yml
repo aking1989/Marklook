@@ -148,6 +148,8 @@ jobs:
           Write-Host "=== deps 目录中的 DLL ==="
           Get-ChildItem target/debug/deps/*.dll | ForEach-Object {
             Write-Host "$($_.Name) $($_.Length) $($_.LastWriteTime)"
-          }      - name: Tests
+          }
+
+      - name: Tests
         working-directory: src-tauri
         run: cargo test
