@@ -109,9 +109,24 @@ jobs:
           Copy-Item $dll.FullName target/debug/deps/ -Force
           Get-ChildItem target/debug/deps/WebView2Loader.dll
 
-      - name: Tests
+      - name: Tests (Linux/macOS)
+        if: runner.os != 'Windows'
         working-directory: src-tauri
         run: cargo test
+
+      # runner 的 JDK bin 在 PATH 上，其自带旧版 UCRT 代理 DLL（api-ms-win-*.dll）
+      # 会劫持测试 exe 的 API-set 解析（dumpbin 证实依赖 api-ms-win-core-synch-l1-2-0.dll，
+      # Get-Command 证实解析到 JDK 目录副本），导致 STATUS_ENTRYPOINT_NOT_FOUND；
+      # 测试前从 PATH 移除 JDK 目录。
+      - name: Tests (Windows)
+        if: runner.os == 'Windows'
+        working-directory: src-tauri
+        shell: pwsh
+        run: |
+          $env:PATH = ($env:PATH -split ';' |
+            Where-Object { $_ -and $_ -notmatch 'Java_|jdk|temurin' }) -join ';'
+          Write-Host "PATH 残留 JDK: $(($env:PATH -split ';' | Where-Object { $_ -match 'Java_|jdk' }).Count)"
+          cargo test
 
       # 诊断 STATUS_ENTRYPOINT_NOT_FOUND（0xc0000139）：cargo test 编译成功后
       # exe 才存在，故置于 Tests 之后且 always()（失败时也执行）。
