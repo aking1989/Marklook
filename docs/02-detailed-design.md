@@ -200,7 +200,7 @@ Rust 依赖：
 | `tauri-plugin-dialog` 2 | 原生对话框（Rust 侧调用） |
 | `tauri-plugin-store` 2 | 设置持久化 |
 | `tauri-plugin-window-state` 2 | 窗口尺寸位置 |
-| `tauri-plugin-single-instance` 2 | 单实例 |
+
 | `tauri-plugin-opener` 2 | 外链与在文件夹中显示 |
 | `notify`, `notify-debouncer-mini` | 文件监听 |
 | `ignore` | 目录遍历 |
@@ -2088,32 +2088,32 @@ function loadSettings(raw: unknown): SettingsV1 {
 - 打开的文件加入 allowlist；同时把其父目录加入 allowlist（图片等相对资源需要）。
 - 若文件是 `.md` 之外的扩展名，仅以只读方式打开并提示。
 
-### 15.4 单实例与待打开队列
+### 15.4 多实例与待打开队列
+
+> 变更（v0.9.1）：应用允许**多实例**。狗粮反馈单窗口被"最后打开的文件"占用，不符合
+> "一次打开多篇文档并排阅读"的实际用法。每个进程拥有独立窗口与状态；同一文件被两个
+> 窗口同时编辑时，由保存冲突矩阵（§11.3）兜底，不会静默丢数据。
+
+平台行为：
+
+- **Windows / Linux**：每次双击 `.md` 启动新进程（argv 携带路径），即新窗口。
+- **macOS**：LaunchServices 不为新双击启动新进程，文件经 `RunEvent::Opened { urls }`
+  送达**已运行进程**的窗口（macOS 文档模型惯例）。前端监听 `app://open-paths` 打开。
+
+待打开队列（两平台共用）：
 
 ```rust
-let state = AppState::default();
-
-tauri::Builder::default()
-    .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-        let paths = filter_markdown_paths(argv);
-        if !paths.is_empty() {
-            app.state::<AppState>().push_pending(paths.clone());
-            app.emit("app://open-paths", paths).ok();
-        }
-        if let Some(w) = app.get_webview_window("main") {
-            let _ = w.set_focus();
-        }
-    }))
-    .manage(state)
-    .setup(|app| {
-        // 冷启动参数、macOS Opened 事件都写入 pending 队列
-        Ok(())
-    })
+// 冷启动：setup 收集 argv 中的 .md；macOS 运行中：RunEvent::Opened
+let paths = filter_markdown_paths(args);
+// 打开的文件不经对话框，先 canonicalize + allow_file（消解 symlink），
+// 否则 read_document 会被 PATH_OUTSIDE_ROOT 拒绝
+state.push_pending_open(paths);
+app.emit("app://open-paths", resolved_paths);
 ```
 
-- 冷启动：前端就绪后调用 `take_pending_open()` 一次性取走队列。
-- 运行中：监听 `app://open-paths`，按当前文档脏状态决定是替换还是提示。
-- macOS 的 `RunEvent::Opened { urls }` 可能早于 WebView 就绪，必须入队而不是直接 emit。
+- 冷启动：前端就绪后调用 `take_pending_open()` 一次性取走队列（取出的路径已入 allowlist）。
+- 运行中（macOS）：监听 `app://open-paths`，按当前文档脏状态决定是替换还是提示。
+- `RunEvent::Opened { urls }` 可能早于 WebView 就绪，必须入队而不是直接 emit。
 - 队列按打开顺序去重。
 
 ### 15.5 启动时序

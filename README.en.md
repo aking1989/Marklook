@@ -62,7 +62,7 @@ No WYSIWYG, no split-pane preview, no cloud. It is local, offline, and built for
 
 - Single-file HTML export (styles, math, highlighting, local images inlined — works offline)
 - System print / export to PDF (`Cmd/Ctrl+P`)
-- `.md` file association, double-click to open, single instance (second launches hand off to the running window)
+- `.md` file association and double-click to open; multiple instances/windows supported (on macOS, files open into the running window)
 - Native application menus
 
 ## 🔒 Privacy & Security

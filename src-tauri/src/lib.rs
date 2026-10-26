@@ -97,38 +97,53 @@ pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builde
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    configure(
-        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            // 第二个实例启动：把命令行里的 .md 路径转交给首实例。
-            // 转交文件不经对话框，必须先加入 allowlist，否则前端 read_document
-            // 会被 PATH_OUTSIDE_ROOT 拒绝（冷启动由 take_pending_open 兜底，
-            // 运行中转交走这里）。
-            let markdown_paths = collect_markdown_args(argv);
-            let state = app.state::<AppState>();
-            let resolved: Vec<String> = markdown_paths
-                .into_iter()
-                .map(|path| match dunce::canonicalize(&path) {
-                    Ok(canonical) => {
-                        state.allow_file(canonical.clone());
-                        canonical.to_string_lossy().into_owned()
-                    }
-                    Err(_) => path,
-                })
-                .collect();
-            state.push_pending_open(resolved.iter().map(std::path::PathBuf::from).collect());
-            let _ = app.emit("app://open-paths", resolved);
+    let app = configure(tauri::Builder::default())
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
 
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_focus();
+    // 允许多实例（用户需求：双击多个 .md 应得到多个窗口）。每个进程有自己的
+    // 窗口与状态；同一文件被两个窗口同时编辑时由保存冲突矩阵兜底，不会静默丢数据。
+    // 平台差异：Windows 双击 .md 会启动新进程（argv 携带路径，setup 已收集）；
+    // macOS 的 LaunchServices 不启动新进程，文件经 RunEvent::Opened 送达本进程。
+    #[cfg(target_os = "macos")]
+    {
+        app.run(|app, event| {
+            if let tauri::RunEvent::Opened { urls } = event {
+                // 打开的文件不经对话框，先授权（canonicalize 消解 symlink）
+                // 再转交前端，否则 read_document 会被 PATH_OUTSIDE_ROOT 拒绝。
+                let state = app.state::<AppState>();
+                let resolved: Vec<String> = urls
+                    .iter()
+                    .filter_map(|url| url.to_file_path().ok())
+                    .map(|path| match dunce::canonicalize(&path) {
+                        Ok(canonical) => {
+                            state.allow_file(canonical.clone());
+                            crate::io::to_slash(&canonical)
+                        }
+                        Err(_) => path.to_string_lossy().into_owned(),
+                    })
+                    .collect();
+                if resolved.is_empty() {
+                    return;
+                }
+                state.push_pending_open(resolved.iter().map(std::path::PathBuf::from).collect());
+                let _ = app.emit("app://open-paths", resolved);
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_focus();
+                }
             }
-        })),
-    )
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+        });
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        app.run(|_app, _event| {});
+    }
 }
 
 #[cfg(test)]
-mod single_instance_tests {
+mod open_args_tests {
+
     use super::collect_markdown_args;
 
     #[test]
