@@ -181,11 +181,28 @@ export const rehypeShiki: Plugin<[RehypeShikiOptions], Root> =
     }
   };
 
+/**
+ * 无需高亮的纯文本语言别名。Shiki 不内置 text/plaintext，
+ * 技术文档里大量 ` ```text ` 块会被当成未知语言并刷 warning（还会污染 warnings）。
+ * 这类块按普通代码块保留，不加载语法、不报 warning。
+ */
+const PLAIN_LANGUAGES = new Set([
+  "text",
+  "plaintext",
+  "plain",
+  "txt",
+  "output",
+  "log",
+  "tree",
+  "none",
+]);
+
 async function resolveLanguage(
   highlighter: import("shiki").Highlighter,
   lang: string,
   warnings: RenderWarning[],
 ): Promise<string | null> {
+  if (PLAIN_LANGUAGES.has(lang.toLowerCase())) return null;
   if (highlighter.getLoadedLanguages().includes(lang)) return lang;
 
   const shiki = await import("shiki");

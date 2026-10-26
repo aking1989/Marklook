@@ -133,11 +133,11 @@ cd src-tauri
 cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 ```
 
-- 前端：Vitest 96 项（渲染管线、搜索、安全语料、性能基准、设置边界）+ Playwright 24 项 E2E（含 axe 可访问性扫描）
+- 前端：Vitest 117 项（渲染管线、搜索、安全语料、性能基准、设置边界、狗粮回归）+ Playwright 25 项 E2E（含 axe 可访问性扫描）
 - Rust：52 项（IO/EOL-BOM 往返、allowlist 与路径逃逸、mdasset 协议、文件监听、草稿、MockRuntime IPC 集成）
 - CI：ubuntu 跑前端全量门禁，macOS 与 Windows 双平台跑 Rust（`.github/workflows/ci.yml`）；打 `v*` tag 自动构建双平台安装包并发布 Release
 
-深入设计见 [docs/](docs/)：[概要设计](docs/01-architecture.md)（架构/ADR/风险）、[详细设计](docs/02-detailed-design.md)（渲染管线/平台层/工作区/安全）、[测试方案](docs/03-test-plan.md)、[开发计划](docs/04-development-plan.md)、[PDF 验证报告](docs/05-pdf-verification.md)、[签名说明](docs/06-signing.md)。设计文档中的图均为 Mermaid，可直接阅读渲染效果。
+深入设计见 [docs/](docs/)：[概要设计](docs/01-architecture.md)（架构/ADR/风险）、[详细设计](docs/02-detailed-design.md)（渲染管线/平台层/工作区/安全）、[测试方案](docs/03-test-plan.md)、[开发计划](docs/04-development-plan.md)、[PDF 验证报告](docs/05-pdf-verification.md)、[签名说明](docs/06-signing.md)、[狗粮记录](docs/07-dogfood.md)。设计文档中的图均为 Mermaid，可直接阅读渲染效果。
 
 ## 🗺 路线图
 

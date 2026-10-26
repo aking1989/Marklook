@@ -9,6 +9,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
 } from "react";
+import { decodeUrlPath } from "../../lib/docPath";
 import { LineMapTracker } from "../../lib/lineMap";
 import type { OutlineItem, RenderTheme } from "../../markdown/types";
 import { isTauriRuntime } from "../../platform";
@@ -261,11 +262,20 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
       }
 
       if (href.startsWith("#")) {
-        const slug = href.slice(1);
+        // 标题 id 是原文（中文/大小写），href 可能被编码；data-anchor 已还原。
+        const slug =
+          anchor.getAttribute("data-anchor") ?? decodeUrlPath(href.slice(1));
         const target = outline.find((item) => item.id === slug);
         if (target) {
           trackerRef.current?.scrollTo(target.line);
+          return;
         }
+        // 脚注等非标题锚点：按 id 定位。sanitize 会给 id 补 user-content- 前缀，
+        // 而脚注自身的 href 已带该前缀，因此两种写法都要试。
+        const byId =
+          document.getElementById(slug) ??
+          document.getElementById(`user-content-${slug}`);
+        byId?.scrollIntoView({ block: "start" });
       }
     }
 

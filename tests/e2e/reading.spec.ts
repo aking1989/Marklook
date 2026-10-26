@@ -122,3 +122,24 @@ test("远程图片点击加载（策略开启后）", async ({ page }) => {
     timeout: 5000,
   });
 });
+
+test("脚注链接可跳转（DF-04）", async ({ page }) => {
+  await openSampleDoc(page);
+
+  // 脚注引用与返回链接的 href 必须指向实际存在的 id：
+  // sanitize 会给 id 补 user-content- 前缀，href 不跟着改就点不动。
+  const targets = await page
+    .locator('.md-body a[href^="#"]')
+    .evaluateAll((anchors) => anchors.map((a) => a.getAttribute("href")));
+  expect(targets.length).toBeGreaterThan(0);
+  for (const target of targets) {
+    expect(
+      await page.locator(`.md-body ${target}`).count(),
+      `${target} 应有对应元素`,
+    ).toBeGreaterThan(0);
+  }
+
+  const footnoteRef = page.locator(".md-body a[data-footnote-ref]").first();
+  await footnoteRef.click();
+  await expect(page.locator(".footnotes li").first()).toBeInViewport();
+});

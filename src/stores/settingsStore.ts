@@ -23,6 +23,8 @@ interface SettingsState {
   readingFont: ReadingFont;
   allowRemoteImages: boolean;
   autoSave: boolean;
+  /** 侧栏宽度（px），可拖动调整。 */
+  sidebarWidth: number;
   setTheme: (theme: Theme) => void;
   cycleTheme: () => void;
   setFontSize: (size: number) => void;
@@ -32,6 +34,19 @@ interface SettingsState {
   setReadingFont: (font: ReadingFont) => void;
   setAllowRemoteImages: (allowed: boolean) => void;
   setAutoSave: (enabled: boolean) => void;
+  setSidebarWidth: (width: number) => void;
+}
+
+/** 侧栏宽度范围：太窄放不下文件树，太宽挤掉正文。 */
+export const SIDEBAR_MIN_WIDTH = 180;
+export const SIDEBAR_MAX_WIDTH = 480;
+export const SIDEBAR_DEFAULT_WIDTH = 248;
+
+export function clampSidebarWidth(width: number): number {
+  return Math.min(
+    SIDEBAR_MAX_WIDTH,
+    Math.max(SIDEBAR_MIN_WIDTH, Math.round(width)),
+  );
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -44,6 +59,7 @@ export const useSettingsStore = create<SettingsState>()(
       readingFont: "serif",
       allowRemoteImages: false,
       autoSave: true,
+      sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
 
       setTheme: (theme) => set({ theme }),
 
@@ -78,6 +94,9 @@ export const useSettingsStore = create<SettingsState>()(
       setAllowRemoteImages: (allowRemoteImages) => set({ allowRemoteImages }),
 
       setAutoSave: (autoSave) => set({ autoSave }),
+
+      setSidebarWidth: (width) =>
+        set({ sidebarWidth: clampSidebarWidth(width) }),
     }),
     { name: "marklook.settings" },
   ),

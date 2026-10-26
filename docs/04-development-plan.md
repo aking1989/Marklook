@@ -10,8 +10,11 @@
 > **进度（2026-10-24）**：**M0–M5 全部完成，v0.9.0 RC（功能冻结）**。M0：主链路与 PDF 打印（系统打印路线）验证；EOL/BOM 字节级往返固化为 Rust 测试。M1：完整渲染管线（frontmatter/KaTeX/Shiki 双主题/Mermaid/sanitize/mdasset:// 资源协议/远程图片零网络）、滚动同步缓存化、大纲跟随、排版设置持久化；100KB 渲染实测约 190ms（预算修订为 200ms，见变更记录 v0.2）。M2：工作区扫描（ignore crate，gitignore/忽略目录/条目上限）、文件树（数字感知排序、revealPath 定位）、最近记录、跨文件搜索（MiniSearch Worker + Intl.Segmenter 二元组分词；实测 1,000 文件索引 141ms、查询 3ms，远优于 2s/50ms 预算）、文件监听（notify 300ms 去抖，单文档父目录监听捕获 rename 保存）、外部变更检测与冲突面板（覆盖/加载磁盘/忽略，静默重载保持滚动位置）、自动保存（800ms 去抖，可在设置关闭）、崩溃草稿（2s 去抖落盘、打开时恢复提示、7 天清理）。质量门禁：Vitest 67 项、Playwright 17 项、cargo fmt/clippy/test 38 项，本地全绿；CI 覆盖前端全门禁 + macOS/Windows Rust 矩阵（首跑结果需在 GitHub Actions 页面人工查看，开发机无私有仓库访问凭据）。M3：图片粘贴/拖入 → assets/ 目录（文件名清洗 + 去重 + 白名单）并插入 Markdown 语法；撤销历史与光标位置跨模式切换保持（EditorView 常驻，E2E 验证往返+撤销/重做）；IME 组合输入跳过全局快捷键；大文件模式（>2MB 或 >25k 行：渲染跳过 Shiki、编辑器关行号/当前行装饰，状态栏标识；E2E 覆盖）。质量门禁：Vitest 67 项、Playwright 21 项、cargo 41 项，本地全绿。M4：HTML 单文件导出（buildStandaloneHtml：tokens/base/reader/katex 样式内联、图片 data URI、剔除交互元素、等待 Mermaid 队列）、原生菜单（menu.rs，文件/预置编辑/视图，事件桥接）、单实例（tauri-plugin-single-instance，argv .md 转交首实例）、文件关联冷启动（setup 收集 → take_pending_open）、退出确认（CloseRequested 拦截 → 前端三选 → close_window 放行）、release.yml（tag 触发，macOS universal dmg + Windows NSIS + GitHub Release）；签名说明 docs/06-signing.md。本地验证：Rust release 编译 + Marklook.app bundle 成功；dmg 生成至中间态（Finder AppleScript 美化在本地无头会话超时，CI 不受影响）。双平台安装包的 CI 产出与双击 .md 实机行为需在 GitHub Actions/实机确认（本机无法观测私有仓库 CI）。M5：22 项安全语料回归全拦截；性能基准固化（100KB 204ms、搜索 141ms/3ms、1MB 按实测修订 9.3s，变更记录 v0.3）；大文件打开提示；CHANGELOG 与已知问题；版本 0.9.0。可访问性：全交互控件带 aria-label/role，侧栏树 role=tree，错误/通知 role=alert/status（手动检查项遗留至实机走查）。狗粮使用与双平台手动矩阵需人工执行（自动化无法替代）。**CI 首跑已闭环（2026-10-25，token 接管后诊断修复 6 处）**：Windows 测试 exe 缺 comctl32 v6
 manifest（dumpbin 定位，build.rs 嵌入）；JDK PATH 劫持 API-set 解析（移除后通过）；E2E 修饰键
 平台差异（Meta→ControlOrMeta）；基准超时与 CI 限额；release 步骤 git 仓库推断与上传 404；
-路径断言平台分隔符。**v0.9.0 Release 已产出：dmg + NSIS exe + SHA256SUMS.txt**。待人工：
-Windows 实机 GUI 矩阵、安装包安装验证、一周狗粮后发布 v1.0.0。
+路径断言平台分隔符。**v0.9.0 Release 已产出：dmg + NSIS exe + SHA256SUMS.txt**。
+
+> **狗粮（2026-10-26）**：用仓库自身 10 篇文档、本机 Obsidian 笔记与约 90 条边界语料跑渲染管线，发现 7 项问题，修复 6 项（中文/空格路径编码、锚点编码与大小写、开头分隔线吞正文、脚注 id 前缀错位、嵌套围栏漏检、`text` 围栏刷警告），1 项转为已知问题（渲染 warning 无 UI 出口）。新增 19 条 Vitest 与 1 条 Playwright 回归，详见 [狗粮记录](./07-dogfood.md)。
+
+待人工：Windows 实机 GUI 矩阵、安装包安装验证、剩余狗粮使用后发布 v1.0.0。
 
 ---
 

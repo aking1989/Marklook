@@ -2,11 +2,15 @@ import type { Element, Root } from "hast";
 import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import {
+  decodeUrlPath,
   dirname,
   isExternalUrl,
   isMarkdownPath,
   joinPath,
 } from "../../lib/docPath";
+
+/** hast-util-sanitize 的 id 前缀（schema.clobberPrefix 默认值）。 */
+const ID_PREFIX = "user-content-";
 
 export interface RehypeResolveUrlsOptions {
   docPath: string | null;
@@ -52,7 +56,10 @@ function resolveAnchor(node: Element, baseDir: string | null): void {
   if (!href) return;
 
   if (href.startsWith("#")) {
-    node.properties.dataAnchor = href.slice(1);
+    // 锚点 id 由标题原文生成（中文、大写原样保留），而 href 已被百分号编码。
+    // 脚注的 href 已对齐 sanitize 的 user-content- 前缀，这里不再套标题规则。
+    const anchor = decodeUrlPath(href.slice(1));
+    if (!anchor.startsWith(ID_PREFIX)) node.properties.dataAnchor = anchor;
     return;
   }
 
@@ -66,7 +73,8 @@ function resolveAnchor(node: Element, baseDir: string | null): void {
   // 相对 Markdown 文档：解析为绝对路径，交给应用在当前窗口打开；
   // 其余相对路径（附件等）保留原样，点击交给系统处理。
   if (!/^[a-z][a-z0-9+.-]*:/i.test(href)) {
-    const path = href.split(/[?#]/)[0] ?? href;
+    // 磁盘路径用原文（含中文、空格），href 里的百分号编码只属于 URL 层。
+    const path = decodeUrlPath(href.split(/[?#]/)[0] ?? href);
     if (path && isMarkdownPath(path)) {
       node.properties.dataInternalDoc = baseDir
         ? joinPath(baseDir, path)
@@ -149,7 +157,8 @@ function resolveImage(node: Element, context: ImageContext): void {
   if (/^[a-z][a-z0-9+.-]*:/i.test(src)) return; // mdasset 等已解析协议，原样保留
 
   if (context.baseDir) {
-    const absolute = joinPath(context.baseDir, src.split(/[?#]/)[0] ?? src);
+    const relative = decodeUrlPath(src.split(/[?#]/)[0] ?? src);
+    const absolute = joinPath(context.baseDir, relative);
     node.properties.dataAbsSrc = absolute;
     if (context.resolveAsset) {
       node.properties.src = context.resolveAsset(absolute);

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { toPosixPath } from "../lib/docPath";
 import type { VaultEntry } from "../platform/types";
 import { platform } from "../platform";
 
@@ -14,7 +15,7 @@ const collator = new Intl.Collator("zh-CN", {
   sensitivity: "base",
 });
 
-/** 相对 root 的父目录绝对路径；顶层返回 null。 */
+/** 相对 root 的父目录绝对路径；顶层返回 null。入参须为 POSIX 风格。 */
 function parentDirOf(absolutePath: string, prefix: string): string | null {
   const relative = absolutePath.slice(prefix.length);
   const slash = relative.lastIndexOf("/");
@@ -22,9 +23,10 @@ function parentDirOf(absolutePath: string, prefix: string): string | null {
   return `${prefix}${relative.slice(0, slash)}`;
 }
 
-/** 由扫描结果构建树：目录在前，`第2章` 排在 `第10章` 前（数字感知排序）。 */
+/** 由扫描结果构建树：目录在前，`第2章` 排在 `第10章` 前（数字感知排序）。
+ *  Windows 路径（反斜杠）先统一为 POSIX 再做结构推导。 */
 export function buildTree(entries: VaultEntry[], root: string): TreeNode[] {
-  const prefix = root.endsWith("/") ? root : `${root}/`;
+  const prefix = `${toPosixPath(root).replace(/\/+$/, "")}/`;
   const dirs = new Map<string, TreeNode>();
   const rootChildren: TreeNode[] = [];
 
@@ -49,25 +51,27 @@ export function buildTree(entries: VaultEntry[], root: string): TreeNode[] {
 
   // 第一遍：建立全部目录骨架（显式目录条目 + 文件路径隐含的中间目录）。
   for (const entry of entries) {
-    if (!entry.path.startsWith(prefix)) continue;
+    const path = toPosixPath(entry.path);
+    if (!path.startsWith(prefix)) continue;
     if (entry.isDir) {
-      ensureDir(entry.path);
+      ensureDir(path);
       continue;
     }
-    const parent = parentDirOf(entry.path, prefix);
+    const parent = parentDirOf(path, prefix);
     if (parent) ensureDir(parent);
   }
 
   // 第二遍：挂文件。
   for (const entry of entries) {
-    if (entry.isDir || !entry.path.startsWith(prefix)) continue;
+    const path = toPosixPath(entry.path);
+    if (entry.isDir || !path.startsWith(prefix)) continue;
     const node: TreeNode = {
       name: entry.name,
-      path: entry.path,
+      path,
       isDir: false,
       children: [],
     };
-    const parent = parentDirOf(entry.path, prefix);
+    const parent = parentDirOf(path, prefix);
     if (parent) {
       dirs.get(parent)?.children.push(node);
     } else {
@@ -149,11 +153,12 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   revealPath(filePath) {
     const { root, expanded } = get();
     if (!root) return;
-    const prefix = root.endsWith("/") ? root : `${root}/`;
-    if (!filePath.startsWith(prefix)) return;
+    const prefix = `${toPosixPath(root).replace(/\/+$/, "")}/`;
+    const normalized = toPosixPath(filePath);
+    if (!normalized.startsWith(prefix)) return;
 
     const next = { ...expanded };
-    const segments = filePath.slice(prefix.length).split("/");
+    const segments = normalized.slice(prefix.length).split("/");
     for (let depth = 1; depth < segments.length; depth += 1) {
       const dirPath = `${prefix}${segments.slice(0, depth).join("/")}`;
       next[dirPath] = true;
@@ -167,12 +172,13 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
 }));
 
 function firstLevelExpanded(root: string, entries: VaultEntry[]) {
-  const prefix = root.endsWith("/") ? root : `${root}/`;
+  const prefix = `${toPosixPath(root).replace(/\/+$/, "")}/`;
   const expanded: Record<string, boolean> = {};
   for (const entry of entries) {
     if (!entry.isDir) continue;
-    const relative = entry.path.slice(prefix.length);
-    if (relative.split("/").length === 1) expanded[entry.path] = true;
+    const path = toPosixPath(entry.path);
+    const relative = path.slice(prefix.length);
+    if (relative.split("/").length === 1) expanded[path] = true;
   }
   return expanded;
 }

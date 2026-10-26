@@ -14,6 +14,7 @@ import { unified, type Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import { detectCapabilities } from "./detect";
 import { sanitizeSchema } from "./schema";
+import { rehypeAnchorIds } from "./plugins/rehypeAnchorIds";
 import { rehypeResolveUrls } from "./plugins/rehypeResolveUrls";
 import { rehypeTableWrap, rehypeTaskListA11y } from "./plugins/rehypeTableWrap";
 import type {
@@ -38,6 +39,30 @@ export function defaultRenderOptions(): RenderOptions {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * frontmatter 只在文档开头才成立：`---` 作为分隔线出现在正文中（甚至开头）
+ * 是常见写法，micromark 的 frontmatter 规则会把两行 `---` 之间的正文整个吞掉。
+ * 判定标准：开头 `---` 之后、闭合 `---` 之前的内容为空（仅空行/注释），
+ * 或以 YAML 键值 / 列表项开头；否则按普通 Markdown 解析。
+ */
+function hasFrontmatter(source: string): boolean {
+  const lines = source.replace(/^\u{feff}/u, "").split(/\r?\n/);
+  if (lines[0]?.trim() !== "---") return false;
+
+  const body = lines.slice(1);
+  const closeIndex = body.findIndex((line) => line.trim() === "---");
+  if (closeIndex < 0) return false;
+
+  const meaningful = body
+    .slice(0, closeIndex)
+    .map((line) => line.trim())
+    .filter((line) => line !== "" && !line.startsWith("#"));
+
+  if (meaningful.length === 0) return true;
+  const first = meaningful[0] as string;
+  return /^[^\s#-][^:]*:(\s|$)/.test(first) || /^-\s/.test(first);
 }
 
 interface CollectOptions {
@@ -190,10 +215,11 @@ export async function renderMarkdown(
     return cached;
   }
 
-  const processor = unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .use(remarkFrontmatter, ["yaml"]);
+  const processor = unified().use(remarkParse).use(remarkGfm);
+
+  if (hasFrontmatter(input.source)) {
+    processor.use(remarkFrontmatter, ["yaml"]);
+  }
 
   // enableMath 关闭时不挂 remark-math，$ 保持字面文本。
   if (options.enableMath) {
@@ -208,7 +234,9 @@ export async function renderMarkdown(
       warnings,
       largeFileMode: options.largeFileMode,
     })
-    .use(remarkRehype, { allowDangerousHtml: true });
+    // 脚注 id 交给 sanitize 统一加 user-content- 前缀；若这里也用默认前缀，
+    // 会叠成 user-content-user-content-fn-1，与脚注 href 对不上。
+    .use(remarkRehype, { allowDangerousHtml: true, clobberPrefix: "" });
 
   // rehypeRaw 需要 serialize + parse5 重解析，是管线最贵的阶段之一；
   // 文档不含 "<" 时不可能有内嵌 HTML，直接跳过（raw 字符串按文本保留）。
@@ -217,6 +245,9 @@ export async function renderMarkdown(
   }
 
   processor.use(rehypeSanitize, sanitizeSchema);
+
+  // sanitize 给 id 加了 user-content- 前缀，脚注等页内链接的 href 要跟着改。
+  processor.use(rehypeAnchorIds);
 
   // 数学渲染在 sanitize 之后注入，KaTeX 输出不再过 schema；
   // rehype-katex v7 固定不抛错，单条公式失败渲染为错误文本。
