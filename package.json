@@ -1,6 +1,6 @@
 {
   "name": "marklook",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "墨览 Marklook — 以阅读为中心的本地 Markdown 阅读器（Tauri 2 · macOS & Windows）",
   "license": "MIT",
   "repository": {

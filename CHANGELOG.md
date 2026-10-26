@@ -2,6 +2,27 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.9.1] - 2026-10-26
+
+狗粮修复版：Windows/macOS 双平台使用反馈 + 文档狗粮（详见 [docs/07-dogfood.md](docs/07-dogfood.md)）。
+
+### 修复
+
+- **Windows：打开文件夹后文件树为空**——Rust 返回的路径是反斜杠，前端树构建的前缀匹配永不命中；所有前端可见路径统一 POSIX 分隔符（`io::to_slash`）
+- **Windows：快捷键显示 macOS 符号**——UI 文案按平台显示 ⌘ / Ctrl（实际按键监听本就双平台兼容）
+- **macOS：文件树圆点与内容不对齐**——WKWebView 对带 role 的列表强制 marker 语义，li 级关闭 list-style 并移除 marker
+- **macOS：侧栏无法拖宽**——新增拖宽手柄（180–480px，持久化），顺带修复手柄引入的 grid 塌陷
+
+### 变更
+
+- **允许多实例多窗口**（原为单实例转交）：Windows 双击多个 `.md` 得到多个窗口；macOS 上文件经 `RunEvent::Opened` 打入已运行窗口。同一文件被两窗同时编辑由冲突矩阵兜底
+- 文档狗粮修复 6 项：中文/空格路径的图片与内部链接（URL 百分号编码还原）、中文锚点跳转、开头 `---` 分隔线吞正文、脚注链接失效（sanitize id 前缀对齐）、嵌套围栏能力探测、`text` 代码块警告
+
+### 新增
+
+- 狗粮记录文档（[docs/07-dogfood.md](docs/07-dogfood.md)）与 20 条回归用例（19 单元 + 1 E2E）
+- 侧栏宽度设置项与拖宽手柄；快捷键平台文案函数（`shortcut.ts`）
+
 ## [未发布]
 
 ### 修复（狗粮，详见 [狗粮记录](./docs/07-dogfood.md)）
