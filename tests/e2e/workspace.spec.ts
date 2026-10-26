@@ -96,13 +96,14 @@ test("侧栏可拖宽并持久化", async ({ page }) => {
 
 test("快捷键文案随运行平台显示", async ({ page }) => {
   // macOS 显示 ⌘，其他平台显示 Ctrl——断言跟随运行平台而非硬编码。
-  const modifier = process.platform === "darwin" ? "⌘" : "Ctrl";
+  const combo = (key: string) =>
+    (process.platform === "darwin" ? "⌘" : "Ctrl+") + key;
 
   await page.goto("/");
   const title = await page
     .locator('button[title^="打开文件 ("]')
     .getAttribute("title");
-  expect(title).toContain(`${modifier}O`);
+  expect(title).toContain(combo("O"));
   const kbdText = await page.locator(".shortcut-row kbd").first().textContent();
-  expect(kbdText).toContain(`${modifier}O`);
+  expect(kbdText).toContain(combo("O"));
 });
