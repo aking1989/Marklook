@@ -24,6 +24,7 @@ import {
 } from "./features/export/exportHtml";
 import { renderMarkdown } from "./markdown/pipeline";
 import { isTauriRuntime, PlatformError, platform } from "./platform";
+import { isMacPlatform, shortcutLabel, type ShortcutId } from "./lib/shortcut";
 import { useDocumentStore, type DocStatus } from "./stores/documentStore";
 import { useRecentsStore } from "./stores/recentsStore";
 import {
@@ -127,6 +128,8 @@ export default function App() {
     setReadingFont,
     setAllowRemoteImages,
     autoSave,
+    sidebarWidth,
+    setSidebarWidth,
   } = useSettingsStore();
 
   const {
@@ -141,6 +144,8 @@ export default function App() {
     revealPath,
   } = useWorkspaceStore();
   const { recentFiles, pushFile, pushWorkspace } = useRecentsStore();
+  const isMac = isMacPlatform();
+  const key = (id: ShortcutId) => shortcutLabel(id, isMac);
 
   const readerRef = useRef<ReaderHandle>(null);
   const editorRef = useRef<EditorHandle>(null);
@@ -258,11 +263,12 @@ export default function App() {
     root.style.setProperty("--line-height", String(lineHeight));
     root.style.setProperty("--content-width", `${contentWidth}px`);
     root.style.setProperty("--font-reading", fontStack(readingFont));
+    root.style.setProperty("--sidebar-width", `${sidebarWidth}px`);
     root.style.setProperty(
       "--editor-font-size",
       `${Math.max(13, fontSize - 1)}px`,
     );
-  }, [theme, fontSize, lineHeight, contentWidth, readingFont]);
+  }, [theme, fontSize, lineHeight, contentWidth, readingFont, sidebarWidth]);
 
   useEffect(() => {
     const title = render?.title ? `${render.title} · 墨览` : "墨览";
@@ -1081,7 +1087,7 @@ export default function App() {
           <button
             className="tool-btn"
             onClick={() => void openFile()}
-            title="打开文件 (⌘O)"
+            title={`打开文件 (${key("openFile")})`}
           >
             <FileText size={16} />
             打开
@@ -1098,7 +1104,7 @@ export default function App() {
             className="tool-btn"
             onClick={() => void toggleMode()}
             disabled={!path || !render}
-            title="切换阅读 / 源码 (⌘E)"
+            title={`切换阅读 / 源码 (${key("toggleMode")})`}
           >
             {mode === "read" ? <Pencil size={16} /> : <BookOpen size={16} />}
             {mode === "read" ? "源码" : "阅读"}
@@ -1107,7 +1113,7 @@ export default function App() {
             className="tool-btn"
             onClick={() => void save()}
             disabled={!path || !dirty}
-            title="保存 (⌘S)"
+            title={`保存 (${key("save")})`}
           >
             <Save size={16} />
             保存
@@ -1116,7 +1122,7 @@ export default function App() {
             className="tool-btn"
             onClick={() => void exportHtml()}
             disabled={!path || !render}
-            title="导出 HTML 单文件 (⌘⇧E)"
+            title={`导出 HTML 单文件 (${key("exportHtml")})`}
           >
             <FileDown size={16} />
             导出
@@ -1125,7 +1131,7 @@ export default function App() {
             className="tool-btn"
             onClick={() => void printDocument()}
             disabled={!path || !render}
-            title="打印 / 导出 PDF (⌘P)"
+            title={`打印 / 导出 PDF (${key("print")})`}
           >
             <Printer size={16} />
             打印
@@ -1346,26 +1352,50 @@ export default function App() {
             <h2>快捷键</h2>
             <div className="shortcut-row">
               <span>打开</span>
-              <kbd>⌘O</kbd>
+              <kbd>{key("openFile")}</kbd>
             </div>
             <div className="shortcut-row">
               <span>阅读 / 源码</span>
-              <kbd>⌘E</kbd>
+              <kbd>{key("toggleMode")}</kbd>
             </div>
             <div className="shortcut-row">
               <span>保存</span>
-              <kbd>⌘S</kbd>
+              <kbd>{key("save")}</kbd>
             </div>
             <div className="shortcut-row">
               <span>导出 HTML</span>
-              <kbd>⌘⇧E</kbd>
+              <kbd>{key("exportHtml")}</kbd>
             </div>
             <div className="shortcut-row">
               <span>打印 / PDF</span>
-              <kbd>⌘P</kbd>
+              <kbd>{key("print")}</kbd>
             </div>
           </section>
         </aside>
+
+        {/* 侧栏拖宽手柄：pointer 事件 + Pointer Capture，宽度入设置持久化 */}
+        <div
+          className="sidebar-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="调整侧栏宽度"
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (
+              !(event.currentTarget as HTMLElement).hasPointerCapture(
+                event.pointerId,
+              )
+            ) {
+              return;
+            }
+            const workbench = event.currentTarget.parentElement;
+            if (!workbench) return;
+            const left = workbench.getBoundingClientRect().left;
+            setSidebarWidth(event.clientX - left);
+          }}
+        />
 
         <main className="content">
           {error && (
@@ -1461,7 +1491,10 @@ export default function App() {
                 <FileText size={16} />
                 选择文件
               </button>
-              <p className="hint">⌘O 打开 · ⌘E 切换 · ⌘S 保存</p>
+              <p className="hint">
+                {key("openFile")} 打开 · {key("toggleMode")} 切换 ·{" "}
+                {key("save")} 保存
+              </p>
             </div>
           )}
         </main>

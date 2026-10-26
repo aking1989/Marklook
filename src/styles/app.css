@@ -92,7 +92,7 @@
 
 .workbench {
   display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) 5px minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -677,4 +677,28 @@
 .mode-pill.large-file {
   border-color: #b58900;
   color: #b58900;
+}
+
+/* 侧栏拖宽手柄 */
+.sidebar-resizer {
+  z-index: 30;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer[aria-valuenow] {
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+/* WKWebView(Safari) 对带 role 的列表会强制 marker 语义：
+   在 li 上直接关闭 list-style 并移除 marker，修复圆点与内容不对齐 */
+.file-tree li {
+  list-style: none;
+}
+
+.file-tree li::marker {
+  content: none;
 }

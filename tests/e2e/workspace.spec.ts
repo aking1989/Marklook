@@ -46,3 +46,66 @@ test("工作区树可以折叠与展开", async ({ page }) => {
   await docsRow.click();
   await expect(page.getByRole("button", { name: "guide.md" })).toBeVisible();
 });
+
+test("侧栏可拖宽并持久化", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "打开文件夹" }).first().click();
+
+  const root = page.locator("html");
+  const before = await root.evaluate((el) =>
+    Number.parseInt(el.style.getPropertyValue("--sidebar-width"), 10),
+  );
+
+  const resizer = page.getByRole("separator", { name: "调整侧栏宽度" });
+  await expect(resizer).toBeVisible();
+  const box = await resizer.boundingBox();
+  if (!box) throw new Error("找不到拖宽手柄");
+
+  await page.mouse.move(box.x + box.width / 2, box.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 120, box.y + 200, { steps: 8 });
+  await page.mouse.up();
+
+  const after = await root.evaluate((el) =>
+    Number.parseInt(el.style.getPropertyValue("--sidebar-width"), 10),
+  );
+  expect(after).toBeGreaterThanOrEqual(before + 100);
+
+  // 内容区不能因 grid 塌陷（回归：resizer 插入后 content 被挤到第二行高度归零）。
+  const layout = await page.evaluate(() => {
+    const content = document.querySelector(".content");
+    const empty = document.querySelector(".empty-state");
+    return {
+      contentHeight: content?.getBoundingClientRect().height ?? 0,
+      emptyVisible: !!empty && empty.getBoundingClientRect().height > 100,
+    };
+  });
+  expect(layout.contentHeight).toBeGreaterThan(300);
+  expect(layout.emptyVisible).toBe(true);
+
+  // 重载后宽度保留（zustand persist）。
+  await page.reload();
+  await expect
+    .poll(() =>
+      root.evaluate((el) =>
+        Number.parseInt(el.style.getPropertyValue("--sidebar-width"), 10),
+      ),
+    )
+    .toBe(after);
+});
+
+test("快捷键文案随运行平台显示", async ({ page }) => {
+  // macOS 显示 ⌘，其他平台显示 Ctrl——断言跟随运行平台而非硬编码。
+  const modifier = process.platform === "darwin" ? "⌘" : "Ctrl";
+  const combo = (key: string) =>
+    new RegExp(`${modifier.replace("+", "\\+")}${key}`);
+
+  await page.goto("/");
+  await expect(page.locator('button[title^="打开文件 ("]')).toHaveAttribute(
+    "title",
+    combo("O"),
+  );
+  await expect(page.locator(".shortcut-row kbd").first()).toHaveText(
+    combo("O"),
+  );
+});
