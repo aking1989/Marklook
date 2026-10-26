@@ -154,7 +154,7 @@ pub fn scan_vault_with_limits(
 
         entries.push(VaultEntryDto {
             name,
-            path: path.to_string_lossy().into_owned(),
+            path: crate::io::to_slash(&path),
             is_dir,
             size,
             mtime_ms: mtime,
@@ -179,7 +179,7 @@ pub fn list_dir(path: &Path) -> Result<Vec<VaultEntryDto>, CommandError> {
 
         entries.push(VaultEntryDto {
             name,
-            path: entry.path().to_string_lossy().into_owned(),
+            path: crate::io::to_slash(&entry.path()),
             is_dir: metadata.is_dir(),
             size: metadata.len(),
             mtime_ms: mtime_ms(&metadata),

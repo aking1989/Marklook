@@ -34,7 +34,7 @@ pub async fn pick_file_and_allow<R: tauri::Runtime>(
         state.allow_root(parent);
     }
 
-    Ok(Some(canonical.to_string_lossy().into_owned()))
+    Ok(Some(crate::io::to_slash(&canonical)))
 }
 
 #[tauri::command]
@@ -57,5 +57,5 @@ pub async fn pick_folder_and_allow<R: tauri::Runtime>(
 
     state.allow_root(canonical.clone());
 
-    Ok(Some(canonical.to_string_lossy().into_owned()))
+    Ok(Some(crate::io::to_slash(&canonical)))
 }

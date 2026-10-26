@@ -20,6 +20,12 @@ pub struct ReadText {
     pub mtime_ms: u64,
 }
 
+/// 对外（前端 DTO）统一 POSIX 分隔符：Windows 反斜杠会让前端基于 `/`
+/// 的树构建、前缀匹配与高亮对比全部失配。Windows API 接受正斜杠路径。
+pub fn to_slash(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 pub fn mtime_ms(meta: &fs::Metadata) -> u64 {
     meta.modified()
         .ok()
@@ -168,6 +174,29 @@ mod tests {
     }
 
     /// M0 退出标准：打开 → 编辑 → 保存后，EOL 与 BOM 必须与原文件字节级一致。
+    #[test]
+    fn to_slash_normalizes_windows_separators() {
+        assert_eq!(
+            to_slash(Path::new("C:\\docs\\子 目录\\a.md")),
+            "C:/docs/子 目录/a.md"
+        );
+        assert_eq!(
+            to_slash(Path::new("/already/posix.md")),
+            "/already/posix.md"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn scan_output_uses_posix_separators_on_windows() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.md"), "a").unwrap();
+        let outcome = crate::vault::scan_vault(dir.path(), false).unwrap();
+        for entry in &outcome.entries {
+            assert!(!entry.path.contains('\\'), "路径含反斜杠：{}", entry.path);
+        }
+    }
+
     #[test]
     fn round_trip_preserves_crlf_and_bom_bytes() {
         let dir = tempdir().unwrap();

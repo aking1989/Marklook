@@ -30,7 +30,7 @@ pub async fn scan_vault(
             .map_err(|error| CommandError::Io(error.to_string()))??;
 
     Ok(VaultScanDto {
-        root: state.ensure_allowed(&root)?.to_string_lossy().into_owned(),
+        root: crate::io::to_slash(&state.ensure_allowed(&root)?),
         entries: outcome.entries,
         truncated: outcome.truncated,
     })

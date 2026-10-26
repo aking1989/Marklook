@@ -37,7 +37,7 @@ pub fn read_document(
     let file = io::read_text_file(&path)?;
 
     Ok(TextDocumentDto {
-        path: path.to_string_lossy().into_owned(),
+        path: crate::io::to_slash(&path),
         content: file.content,
         mtime_ms: file.mtime_ms,
         size: file.size,
