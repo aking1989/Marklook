@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const OPEN_FILE_BUTTON = 'button[title="打开文件 (⌘O)"]';
+const OPEN_FILE_BUTTON = 'button[title^="打开文件 ("]';
 
 /** 草稿场景需要关闭自动保存（否则 800ms 后文件已被保存、草稿被清除）。 */
 async function disableAutoSave(page: Page): Promise<void> {
