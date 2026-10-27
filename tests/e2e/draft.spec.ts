@@ -24,10 +24,10 @@ test("崩溃草稿恢复：重新打开时提示并可恢复", async ({ page }) 
   await page.keyboard.type("\n崩溃前未保存的草稿内容");
   await expect(page.getByText("未保存", { exact: true })).toBeVisible();
 
-  // 草稿 2s 去抖落盘；等待写入完成（不保存，模拟崩溃后重新打开）。
+  // 草稿 2s 去抖落盘；等待写入完成后重载页面模拟崩溃（多标签下"关闭标签"
+  // 会走正常流程清除草稿，只有进程消失才留下草稿）。
   await page.waitForTimeout(2600);
-
-  // 再次打开同一文件（Mock pickFile 固定返回同一路径）。
+  await page.reload();
   await page.on("dialog", (dialog) => dialog.accept());
   await page.locator(OPEN_FILE_BUTTON).click();
 
@@ -60,6 +60,8 @@ test("丢弃草稿后不再提示", async ({ page }) => {
   await page.keyboard.type("\n将被丢弃的草稿");
   await page.waitForTimeout(2600);
 
+  // reload 模拟崩溃（激活已打开标签不查草稿——内容还在）。
+  await page.reload();
   await page.on("dialog", (dialog) => dialog.accept());
   await page.locator(OPEN_FILE_BUTTON).click();
 
@@ -69,7 +71,8 @@ test("丢弃草稿后不再提示", async ({ page }) => {
   await page.getByRole("button", { name: "丢弃" }).click();
   await expect(page.getByText("发现未保存的草稿")).toBeHidden();
 
-  // 再次打开不再提示（草稿已删除）。
+  // 再次打开（重载后草稿已删除）不再提示。
+  await page.reload();
   await page.locator(OPEN_FILE_BUTTON).click();
   await page.waitForTimeout(800);
   await expect(page.getByText("发现未保存的草稿")).toBeHidden();

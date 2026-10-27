@@ -123,7 +123,32 @@ function largeDocument(): string {
 }
 
 const files = new Map<string, MockFile>();
-const drafts = new Map<string, DraftRecord>();
+/**
+ * 草稿存 sessionStorage：E2E 用 page.reload() 模拟进程崩溃后重开——
+ * reload 同页签保留 sessionStorage（草稿还在），新开页签则没有（与真崩溃一致）。
+ */
+const DRAFTS_KEY = "marklook.mock.drafts";
+
+function loadDraftsMap(): Map<string, DraftRecord> {
+  const map = new Map<string, DraftRecord>();
+  if (typeof sessionStorage === "undefined") return map;
+  try {
+    const raw = sessionStorage.getItem(DRAFTS_KEY);
+    if (raw) {
+      for (const record of JSON.parse(raw) as DraftRecord[]) {
+        map.set(record.path, record);
+      }
+    }
+  } catch {
+    // 损坏视为空。
+  }
+  return map;
+}
+
+function persistDraftsMap(map: Map<string, DraftRecord>): void {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.setItem(DRAFTS_KEY, JSON.stringify([...map.values()]));
+}
 const fsListeners = new Set<(event: FsChangeEvent) => void>();
 let watchCounter = 0;
 let openRoots = new Set<string>(["/mock"]);
@@ -135,19 +160,30 @@ function now(): number {
 /** 仅用于开发与 E2E：重置 Mock 文件系统与草稿。 */
 export function resetMockFileSystem(): void {
   files.clear();
-  drafts.clear();
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.removeItem(DRAFTS_KEY);
+  }
   openRoots = new Set(["/mock"]);
   seedFiles();
 }
 
 function seedFiles(): void {
-  files.set("/mock/welcome.md", { content: SAMPLE_DOCUMENT, mtimeMs: now() });
-  files.set("/mock/docs/guide.md", { content: GUIDE_DOCUMENT, mtimeMs: now() });
+  // mtime 固定为过去：reload 重置模块时文件 mtime 不能比草稿还新，
+  // 否则草稿恢复判定（savedAt > mtimeMs）失效。
+  const seededMtime = now() - 3_600_000;
+  files.set("/mock/welcome.md", {
+    content: SAMPLE_DOCUMENT,
+    mtimeMs: seededMtime,
+  });
+  files.set("/mock/docs/guide.md", {
+    content: GUIDE_DOCUMENT,
+    mtimeMs: seededMtime,
+  });
   files.set("/mock/docs/deep/note.md", {
     content: DEEP_DOCUMENT,
-    mtimeMs: now(),
+    mtimeMs: seededMtime,
   });
-  files.set("/mock/big.md", { content: largeDocument(), mtimeMs: now() });
+  files.set("/mock/big.md", { content: largeDocument(), mtimeMs: seededMtime });
 }
 
 seedFiles();
@@ -369,6 +405,7 @@ export const mockPlatform: Platform = {
   },
 
   async saveDraft(path, content, baselineMtimeMs) {
+    const drafts = loadDraftsMap();
     drafts.set(path, {
       path,
       content,
@@ -376,14 +413,17 @@ export const mockPlatform: Platform = {
       savedAt: now(),
       version: 1,
     });
+    persistDraftsMap(drafts);
   },
 
   async loadDraft(path) {
-    return drafts.get(path) ?? null;
+    return loadDraftsMap().get(path) ?? null;
   },
 
   async clearDraft(path) {
+    const drafts = loadDraftsMap();
     drafts.delete(path);
+    persistDraftsMap(drafts);
   },
 
   async cleanupDrafts() {

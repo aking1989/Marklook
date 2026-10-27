@@ -11,6 +11,9 @@ export interface TabRuntime {
   syncTimer: number | null;
   /** 最近一次本应用写入的时间戳（外部变更检测的回环抑制，每标签一份）。 */
   lastWrittenAt: number;
+  /** 阅读位置（高频滚动写入，切走时快照进 TabState——设计 §4.1 注）。 */
+  readLine: number;
+  readScrollTop: number;
 }
 
 const runtimes = new Map<string, TabRuntime>();
@@ -24,6 +27,8 @@ export function runtimeOf(tabId: string): TabRuntime {
       draftTimer: null,
       syncTimer: null,
       lastWrittenAt: 0,
+      readLine: 1,
+      readScrollTop: 0,
     };
     runtimes.set(tabId, runtime);
   }

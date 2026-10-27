@@ -25,9 +25,14 @@ interface ReaderViewProps {
   hidden: boolean;
   theme: RenderTheme;
   outline: OutlineItem[];
-  onOpenInternalDoc: (absolutePath: string) => void;
-  /** 视口顶部所在行变化（100ms 节流），供大纲高亮跟随。 */
-  onTopLineChange?: (line: number) => void;
+  onOpenInternalDoc: (
+    absolutePath: string,
+    options: { newTab: boolean },
+  ) => void;
+  /** 视口顶部所在行与像素偏移变化（100ms 节流），供大纲跟随与多标签快照。 */
+  onViewportChange?: (line: number, scrollTop: number) => void;
+  /** 多标签：切回时恢复的阅读位置（切走时快照，见设计 §6.3）。 */
+  initialScroll?: { line: number; scrollTop: number };
 }
 
 interface LightboxState {
@@ -40,15 +45,23 @@ const COPY_FEEDBACK_MS = 1500;
 
 export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
   function ReaderView(
-    { html, hidden, theme, outline, onOpenInternalDoc, onTopLineChange },
+    {
+      html,
+      hidden,
+      theme,
+      outline,
+      onOpenInternalDoc,
+      onViewportChange,
+      initialScroll,
+    },
     ref,
   ) {
     const scrollerRef = useRef<HTMLDivElement>(null);
     const articleRef = useRef<HTMLElement>(null);
     const trackerRef = useRef<LineMapTracker | null>(null);
     const mermaidEpoch = useRef(0);
-    const topLineCallback = useRef(onTopLineChange);
-    topLineCallback.current = onTopLineChange;
+    const viewportCallback = useRef(onViewportChange);
+    viewportCallback.current = onViewportChange;
     const [lightbox, setLightbox] = useState<LightboxState | null>(null);
 
     useEffect(() => {
@@ -59,6 +72,22 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
       article.innerHTML = html;
       trackerRef.current?.invalidate();
       trackerRef.current ??= new LineMapTracker(scroller, article);
+
+      // 多标签：切回时恢复阅读位置。先按像素（布局未变时最精确），
+      // 高度不足（图片/Mermaid 未加载）退化为按行定位。
+      if (
+        initialScroll &&
+        (initialScroll.scrollTop > 0 || initialScroll.line > 1)
+      ) {
+        requestAnimationFrame(() => {
+          const max = scroller.scrollHeight - scroller.clientHeight;
+          if (initialScroll.scrollTop <= max) {
+            scroller.scrollTop = initialScroll.scrollTop;
+          } else if (initialScroll.line > 1) {
+            trackerRef.current?.scrollTo(initialScroll.line);
+          }
+        });
+      }
 
       // 每个代码块注入复制按钮（绝对定位右上角，样式见 reader.css）。
       for (const pre of article.querySelectorAll<HTMLElement>("pre")) {
@@ -123,13 +152,14 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
     // 滚动 → 当前行回调（节流），驱动大纲高亮。
     useEffect(() => {
       const scroller = scrollerRef.current;
-      if (!scroller || !onTopLineChange) return;
+      if (!scroller || !onViewportChange) return;
 
       let timer: number | null = null;
       const emit = () => {
         timer = null;
         const tracker = trackerRef.current;
-        if (tracker) topLineCallback.current?.(tracker.topLine());
+        if (tracker)
+          viewportCallback.current?.(tracker.topLine(), scroller.scrollTop);
       };
 
       const onScroll = () => {
@@ -143,7 +173,7 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
         scroller.removeEventListener("scroll", onScroll);
         if (timer !== null) window.clearTimeout(timer);
       };
-    }, [onTopLineChange]);
+    }, [onViewportChange]);
 
     // 灯箱：Esc 关闭。
     useEffect(() => {
@@ -246,7 +276,9 @@ export const ReaderView = forwardRef<ReaderHandle, ReaderViewProps>(
       // 相对 Markdown 文档：交给应用层（脏检查后当前窗口打开）。
       const internalDoc = anchor.getAttribute("data-internal-doc");
       if (internalDoc) {
-        onOpenInternalDoc(internalDoc);
+        onOpenInternalDoc(internalDoc, {
+          newTab: event.metaKey || event.ctrlKey,
+        });
         return;
       }
 

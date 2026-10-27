@@ -3,7 +3,13 @@
  * 只影响 UI 文案；实际按键监听始终接受 metaKey 或 ctrlKey。
  */
 export type ShortcutId =
-  "openFile" | "openFolder" | "toggleMode" | "save" | "exportHtml" | "print";
+  | "openFile"
+  | "openFolder"
+  | "toggleMode"
+  | "save"
+  | "exportHtml"
+  | "print"
+  | "closeTab";
 
 const MAC_LABELS: Record<ShortcutId, string> = {
   openFile: "⌘O",
@@ -12,6 +18,7 @@ const MAC_LABELS: Record<ShortcutId, string> = {
   save: "⌘S",
   exportHtml: "⌘⇧E",
   print: "⌘P",
+  closeTab: "⌘W",
 };
 
 const OTHER_LABELS: Record<ShortcutId, string> = {
@@ -21,6 +28,7 @@ const OTHER_LABELS: Record<ShortcutId, string> = {
   save: "Ctrl+S",
   exportHtml: "Ctrl+Shift+E",
   print: "Ctrl+P",
+  closeTab: "Ctrl+W",
 };
 
 /** 判定平台：优先 userAgentData，其次 platform，最后 userAgent。 */

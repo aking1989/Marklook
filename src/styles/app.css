@@ -702,3 +702,127 @@
 .file-tree li::marker {
   content: none;
 }
+
+/* 标签栏（设计 §9.1）：标题栏与工作台之间，34px */
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 34px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  max-width: 200px;
+  padding: 0 8px 0 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12.5px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tab:hover {
+  background: var(--bg-hover);
+}
+
+.tab.active {
+  border-bottom-color: var(--accent);
+  background: var(--bg);
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.tab-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.tab-dot.dirty {
+  background: var(--fg-muted);
+}
+
+.tab-dot.conflict {
+  background: var(--danger, #c0392b);
+}
+
+.tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tab:hover .tab-close,
+.tab.active .tab-close,
+.tab-close:focus-visible {
+  opacity: 1;
+}
+
+.tab-close:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.tab-add {
+  flex: none;
+  align-self: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tab-add:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.tab-bar-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.tab-bar-row .tab-bar {
+  flex: 1;
+  border-bottom: 0;
+}

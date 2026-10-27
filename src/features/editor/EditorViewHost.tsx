@@ -32,6 +32,10 @@ import type { Theme } from "../../stores/settingsStore";
 export interface EditorHandle {
   getValue(): string;
   setValue(value: string): void;
+  /** 切走前保存完整状态（含撤销历史）。 */
+  getState(): EditorState;
+  /** 切回时恢复完整状态。 */
+  setState(state: EditorState): void;
   getCursorLine(): number;
   getTopVisibleLine(): number;
   scrollToLine(line: number, focus?: boolean): void;
@@ -40,6 +44,8 @@ export interface EditorHandle {
 
 interface EditorViewHostProps {
   initialValue: string;
+  /** 多标签：切回时恢复的完整 EditorState（含撤销历史）；为空时按 initialValue 新建。 */
+  restoreState?: EditorState | null;
   visible: boolean;
   theme: Theme;
   /** 大文件模式：关闭行号/当前行高亮等装饰，保留搜索与撤销。 */
@@ -97,7 +103,15 @@ function themeExtension(theme: Theme): Extension {
 
 export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
   function EditorViewHost(
-    { initialValue, visible, theme, largeFile = false, onChange, onPasteImage },
+    {
+      initialValue,
+      restoreState = null,
+      visible,
+      theme,
+      largeFile = false,
+      onChange,
+      onPasteImage,
+    },
     ref,
   ) {
     const hostRef = useRef<HTMLDivElement>(null);
@@ -107,6 +121,7 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
     const onChangeRef = useRef(onChange);
     const onPasteImageRef = useRef(onPasteImage);
     const initialValueRef = useRef(initialValue);
+    const restoreStateRef = useRef(restoreState);
     const themeRef = useRef(theme);
 
     onChangeRef.current = onChange;
@@ -219,7 +234,9 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
       if (!host) return;
 
       const view = new EditorView({
-        state: createState(initialValueRef.current),
+        // 有恢复状态（同标签切回）直接采用——含撤销历史与选区；
+        // 扩展是同一套，EditorState 不可变可直接复用。
+        state: restoreStateRef.current ?? createState(initialValueRef.current),
         parent: host,
       });
       viewRef.current = view;
@@ -277,6 +294,16 @@ export const EditorViewHost = forwardRef<EditorHandle, EditorViewHostProps>(
       () => ({
         getValue() {
           return viewRef.current?.state.doc.toString() ?? "";
+        },
+
+        getState() {
+          const view = viewRef.current;
+          if (!view) throw new Error("编辑器未挂载");
+          return view.state;
+        },
+
+        setState(state: EditorState) {
+          viewRef.current?.setState(state);
         },
 
         setValue(value: string) {
