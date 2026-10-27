@@ -137,7 +137,7 @@ cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 - Rust: 52 tests (IO/EOL-BOM round trips, allowlist & path escapes, mdasset protocol, file watching, drafts, mock-runtime IPC integration)
 - CI: ubuntu runs the full frontend gate; macOS and Windows run Rust (`.github/workflows/ci.yml`); pushing a `v*` tag builds installers for both platforms and publishes a Release
 
-Design documents live in [docs/](docs/) (Chinese): [architecture](docs/01-architecture.md), [detailed design](docs/02-detailed-design.md), [test plan](docs/03-test-plan.md), [development plan](docs/04-development-plan.md), [PDF verification](docs/05-pdf-verification.md), [signing](docs/06-signing.md), [dogfood log](docs/07-dogfood.md). All diagrams are Mermaid and render inline.
+Design documents live in [docs/](docs/) (Chinese): [architecture](docs/01-architecture.md), [detailed design](docs/02-detailed-design.md), [test plan](docs/03-test-plan.md), [development plan](docs/04-development-plan.md), [PDF verification](docs/05-pdf-verification.md), [signing](docs/06-signing.md), [dogfood log](docs/07-dogfood.md), [multi-tab design](docs/08-multi-tab.md). All diagrams are Mermaid and render inline.
 
 ## 🗺 Roadmap
 
