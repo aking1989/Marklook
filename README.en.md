@@ -133,7 +133,7 @@ cd src-tauri
 cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 ```
 
-- Frontend: 117 Vitest tests (pipeline, search, security corpus, benchmarks, settings, dogfood regressions) + 25 Playwright E2E (including axe accessibility scans)
+- Frontend: 120 Vitest tests (pipeline, search, security corpus, benchmarks, settings, dogfood regressions) + 29 Playwright E2E (Chromium + WebKit, including axe accessibility scans; the WebKit project guards WKWebView-only rendering differences)
 - Rust: 52 tests (IO/EOL-BOM round trips, allowlist & path escapes, mdasset protocol, file watching, drafts, mock-runtime IPC integration)
 - CI: ubuntu runs the full frontend gate; macOS and Windows run Rust (`.github/workflows/ci.yml`); pushing a `v*` tag builds installers for both platforms and publishes a Release
 

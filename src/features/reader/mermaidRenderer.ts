@@ -40,6 +40,12 @@ let renderCounter = 0;
 let mermaidPromise: Promise<typeof import("mermaid").default> | null = null;
 let initializedTheme: RenderTheme | null = null;
 
+/**
+ * 图表标签宽度上限（px）。Mermaid 默认 120px，对技术文档里的长路径/长命令
+ * 会把一行拆成五六段；240 在常见栏宽下换行更自然，窄栏仍能靠 SVG 缩放适应。
+ */
+const LABEL_WRAP_WIDTH = 240;
+
 async function getMermaid(theme: RenderTheme) {
   mermaidPromise ??= import("mermaid").then((mod) => mod.default);
   const mermaid = await mermaidPromise;
@@ -51,6 +57,17 @@ async function getMermaid(theme: RenderTheme) {
       theme: "base",
       themeVariables: THEME_VARIABLES[theme],
       fontFamily: "var(--font-reading, sans-serif)",
+      // 标签用 SVG <text> 而不是 HTML foreignObject：
+      // foreignObject 的宽度是渲染前按测量值写死的，WKWebView 实际字体更宽时
+      // 超出部分被直接裁掉（Chromium 下测量更准，所以只在 macOS 桌面版暴露）。
+      // SVG text 随图形一起缩放，不存在裁切。
+      htmlLabels: false,
+      flowchart: { htmlLabels: false, wrappingWidth: LABEL_WRAP_WIDTH },
+      sequence: { wrap: true, width: LABEL_WRAP_WIDTH },
+      class: { htmlLabels: false },
+      state: { wrappingWidth: LABEL_WRAP_WIDTH },
+      er: { useMaxWidth: true },
+      gantt: { useMaxWidth: true },
     });
     initializedTheme = theme;
   }

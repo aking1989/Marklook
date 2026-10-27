@@ -279,6 +279,10 @@ CI 只跑 Mock；Tauri 契约测试作为发布前手动清单的一部分。
 
 运行方式：Vite 开发服务器 + `?platform=mock`，Chromium 与 WebKit 两个 project 都跑。
 
+- `chromium` project：除 `*.webkit.spec.ts` 外的全部用例，本地用本机 Chrome，CI 用 Playwright Chromium。
+- `webkit` project：只跑 `*.webkit.spec.ts`。macOS 桌面版是 WKWebView，Chromium 测不出它的渲染差异
+  （典型例子：Mermaid 的 `<foreignObject>` 标签在 WebKit 下按测量宽度裁掉文字，见 [狗粮记录 DF-08](./07-dogfood.md)）。
+
 | 编号 | 场景 | 关键断言 |
 | --- | --- | --- |
 | E2E-01 | 打开文件并渲染 | 标题、正文、代码块出现；状态栏显示文件名 |
@@ -533,7 +537,7 @@ pnpm typecheck
 pnpm lint
 pnpm format:check
 pnpm test              # Vitest 单元测试
-pnpm test:e2e          # Playwright Chromium（WebKit 在 M5 兼容性阶段加入）
+pnpm test:e2e          # Playwright：Chromium 全量 + WebKit 专属用例
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test

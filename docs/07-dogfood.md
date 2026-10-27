@@ -3,9 +3,9 @@
 | 项目 | 内容 |
 | --- | --- |
 | 日期 | 2026-10-26 |
-| 版本 | v0.9.0 RC |
-| 范围 | 真实文档渲染管线、阅读视图交互、导出/打印前置链路 |
-| 结论 | 发现 7 项问题，修复 6 项，1 项转为已知问题；新增 20 条回归用例（19 单元 + 1 E2E） |
+| 版本 | v0.9.0 RC 起，持续至 v0.9.2 |
+| 范围 | 真实文档渲染管线、阅读视图交互、导出/打印前置链路、双平台实机 |
+| 结论 | 发现 8 项问题，修复 7 项，1 项转为已知问题；新增 22 条回归用例（19 单元 + 3 E2E） |
 
 ## 1. 方法与语料
 
@@ -34,6 +34,7 @@
 | DF-05 | P2 | 列表/引用里的代码块不高亮，Mermaid 不渲染 | 能力探测只匹配行首围栏 | 已修复 |
 | DF-06 | P2 | 每个 ` ```text ` 块都产生“未知代码语言”警告 | Shiki 不内置 `text`，未做纯文本白名单 | 已修复 |
 | DF-07 | P3 | 渲染 warning 没有任何 UI 出口 | `RenderResult.warnings` 只被收集，未被消费 | 已知问题（见 §4） |
+| DF-08 | P1 | Mermaid 图表里的长文字只显示前半截（macOS 桌面版） | 标签用 HTML `<foreignObject>`，宽度按测量值写死，WKWebView 实际字体更宽时被裁 | 已修复（v0.9.2） |
 
 严重度按“用户能否绕过”划分：P1 无绕过路径（内容看不到或链接必然失效），P2 有降级但体验明显受损，P3 不影响正确性。
 
@@ -103,6 +104,20 @@
 
 **回归**：`dogfood.test.ts` → “DF-06 纯文本代码块不报未知语言”。
 
+### DF-08 Mermaid 长标签在 WKWebView 下被裁切（v0.9.2）
+
+**现象**：一张 `flowchart TD` 里，节点与连线上的长文字只显示前半截，例如 `ps3_generate_package.py` 之后的 `pack nvdatasbr` 与中文说明整段消失。同一份文档在浏览器预览（Chromium）里正常。
+
+**根因**：Mermaid 默认用 HTML `<foreignObject>` 承载标签，宽度在渲染前按文本测量值写死；WKWebView 的实际字体更宽，超出部分被直接裁掉。Chromium 的测量恰好够宽，所以只在 macOS 桌面版暴露——这类“引擎测量差异”用 Mock E2E 永远测不到。
+
+**修复**：`mermaid.initialize` 设 `htmlLabels: false`（flowchart / class 一并），标签改用 SVG `<text>`，随图形一起缩放；同时把 `wrappingWidth` 从默认 120px 提到 240px，长路径不再被拆成五六段。
+
+**回归**：
+
+- `tests/e2e/mermaid.webkit.spec.ts`——WebKit 专属，断言渲染结果里没有 `foreignObject`，且每个节点的文字宽度不超过自身形状（留 4px 描边边距）。这是唯一能复现该 bug 的引擎。
+- `tests/e2e/reading.spec.ts` → “Mermaid 长标签完整显示”——Chromium 侧确认长标签换行而非截断。
+- `playwright.config.ts` 增加 `webkit` project（只跑 `*.webkit.spec.ts`），CI 安装 Chromium + WebKit。
+
 ### 顺带修正
 
 - Mermaid 围栏识别改为大小写不敏感（` ```Mermaid ` 也能渲染）。
@@ -132,7 +147,8 @@
 | 文件 | 覆盖 |
 | --- | --- |
 | [`tests/unit/dogfood.test.ts`](../tests/unit/dogfood.test.ts) | DF-01 ~ DF-06，19 条用例（含 `text` 语言表驱动 4 条） |
-| [`tests/e2e/reading.spec.ts`](../tests/e2e/reading.spec.ts) | 脚注跳转（DF-04），并断言页面内所有 `href="#..."` 都有落点 |
+| [`tests/e2e/reading.spec.ts`](../tests/e2e/reading.spec.ts) | 脚注跳转（DF-04），并断言页面内所有 `href="#..."` 都有落点；Mermaid 长标签不被截断（DF-08） |
+| [`tests/e2e/mermaid.webkit.spec.ts`](../tests/e2e/mermaid.webkit.spec.ts) | DF-08 的 WebKit 专属回归：无 `foreignObject`、文字不溢出节点 |
 | [`tests/unit/detect.test.ts`](../tests/unit/detect.test.ts) | 既有能力探测用例，覆盖数学/围栏基础行为 |
 
 复跑：

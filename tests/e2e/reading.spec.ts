@@ -123,6 +123,20 @@ test("远程图片点击加载（策略开启后）", async ({ page }) => {
   });
 });
 
+test("Mermaid 长标签完整显示（不换行截断）", async ({ page }) => {
+  await openSampleDoc(page);
+
+  const block = page.locator(".mermaid-block").first();
+  await block.locator("svg").waitFor({ timeout: 20_000 });
+
+  // 长标签确实换行而不是被截断：三行中文说明应完整出现在 SVG 里。
+  // （裁切本身由 WebKit 专属用例 tests/e2e/mermaid.webkit.spec.ts 守护。）
+  const svgText = (await block.locator("svg").textContent()) ?? "";
+  expect(svgText).toContain("按 bins.conf 顺序拼接");
+  expect(svgText).toContain("路由到对应分区");
+  expect(svgText).toContain("output_NvdataSbr.bin");
+});
+
 test("脚注链接可跳转（DF-04）", async ({ page }) => {
   await openSampleDoc(page);
 

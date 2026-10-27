@@ -2,6 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.9.2] - 2026-10-27
+
+### 修复
+
+- **Mermaid 图表文字被截断**：长节点与连线标签（长命令、中文说明）在 macOS 桌面版里只显示前半截。根因是 Mermaid 默认用 HTML `<foreignObject>` 承载标签，宽度在渲染前按测量值写死，WKWebView 实际字体更宽时超出部分被直接裁掉；Chromium 的测量恰好够宽，所以只有 macOS 暴露。现改用 SVG `<text>` 标签（`htmlLabels: false`），文字随图形一起缩放，不再裁切。
+- **图表标签换行过窄**：Mermaid 默认按 120px 折行，长路径被拆成五六段；提高到 240px，常见栏宽下更自然。
+
+### 工程
+
+- Playwright 增加 WebKit 项目（`tests/e2e/*.webkit.spec.ts`），CI 同时安装 Chromium 与 WebKit——这是唯一能复现上述裁切的引擎。
+- 快捷键平台文案的 E2E 改为用 `addInitScript` 固定平台，macOS / Windows 两个分支在任何 runner 上都能验证，不再依赖跑测试的机器。
+
 ## [0.9.1] - 2026-10-26
 
 狗粮修复版：Windows/macOS 双平台使用反馈 + 文档狗粮（详见 [docs/07-dogfood.md](docs/07-dogfood.md)）。

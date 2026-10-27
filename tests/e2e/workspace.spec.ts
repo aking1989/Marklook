@@ -95,15 +95,34 @@ test("侧栏可拖宽并持久化", async ({ page }) => {
 });
 
 test("快捷键文案随运行平台显示", async ({ page }) => {
-  // macOS 显示 ⌘，其他平台显示 Ctrl——断言跟随运行平台而非硬编码。
-  const combo = (key: string) =>
-    (process.platform === "darwin" ? "⌘" : "Ctrl+") + key;
+  // 用 addInitScript 固定平台，两个分支都能在任意 CI runner 上验证，
+  // 不依赖跑测试的机器本身是 macOS 还是 Linux。
+  const openAs = async (platform: "macOS" | "Windows") => {
+    await page.addInitScript((value) => {
+      Object.defineProperty(navigator, "userAgentData", {
+        configurable: true,
+        value: { platform: value },
+      });
+      Object.defineProperty(navigator, "platform", {
+        configurable: true,
+        value: value === "macOS" ? "MacIntel" : "Win32",
+      });
+    }, platform);
+    await page.goto("/");
+    return {
+      title: await page
+        .locator('button[title^="打开文件 ("]')
+        .getAttribute("title"),
+      kbd: await page.locator(".shortcut-row kbd").first().textContent(),
+    };
+  };
 
-  await page.goto("/");
-  const title = await page
-    .locator('button[title^="打开文件 ("]')
-    .getAttribute("title");
-  expect(title).toContain(combo("O"));
-  const kbdText = await page.locator(".shortcut-row kbd").first().textContent();
-  expect(kbdText).toContain(combo("O"));
+  const mac = await openAs("macOS");
+  expect(mac.title).toContain("⌘O");
+  expect(mac.kbd).toContain("⌘O");
+
+  const win = await openAs("Windows");
+  expect(win.title).toContain("Ctrl+O");
+  expect(win.title).not.toContain("⌘");
+  expect(win.kbd).toContain("Ctrl+O");
 });
