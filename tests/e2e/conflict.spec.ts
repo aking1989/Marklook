@@ -48,7 +48,8 @@ test("脏文档外部修改触发冲突面板并可覆盖", async ({ page }) => 
   await expect(page.locator(".conflict-banner")).toBeVisible({
     timeout: 5000,
   });
-  await expect(page.getByText("未保存", { exact: true })).toBeVisible();
+  // 冲突状态在状态栏有独立文案（statusLabel 的 conflict 分支）。
+  await expect(page.locator(".status-left")).toContainText("有冲突");
 
   // 用我的版本覆盖：状态回到已保存，冲突消失。
   await page.getByRole("button", { name: "用我的版本覆盖" }).click();
