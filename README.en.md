@@ -141,7 +141,7 @@ Design documents live in [docs/](docs/) (Chinese): [architecture](docs/01-archit
 
 ## 🗺 Roadmap
 
-- **v1.1**: in-page find, command palette, tabs, conflict diff view, custom fonts, auto-update (with signing)
+- **v1.1**: tabs (✅ shipped), in-page find, command palette, conflict diff view, custom fonts, auto-update (with signing)
 - **v1.2**: `[[wikilink]]` backlinks, tag search, more export formats, print header/footer templates
 - Explicitly not planned: WYSIWYG, split-pane preview, cloud sync/collaboration, plugins, mobile
 
