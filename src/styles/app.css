@@ -1,17 +1,22 @@
+/* 纵向布局用 flex 而非 grid 定行：
+ * 标签栏是按需渲染的第 4 个子元素（titlebar / tab-bar-row / workbench / statusbar），
+ * 固定 3 行的 grid-template-rows 会让标签栏落进 1fr 行被拉满整窗（Windows 上尤其明显）。
+ * flex 下只有 workbench 吃剩余高度，有没有标签栏都不会错位。 */
 .app-shell {
-  display: grid;
-  grid-template-rows: var(--titlebar-height) minmax(0, 1fr) var(
-      --statusbar-height
-    );
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  min-height: 0;
   background: var(--bg);
   color: var(--fg);
 }
 
 .titlebar {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 14px;
+  height: var(--titlebar-height);
   padding: 0 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elevated);
@@ -92,6 +97,7 @@
 
 .workbench {
   display: grid;
+  flex: 1 1 auto;
   grid-template-columns: var(--sidebar-width) 5px minmax(0, 1fr);
   min-height: 0;
 }
@@ -339,8 +345,10 @@
 
 .statusbar {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
+  height: var(--statusbar-height);
   padding: 0 14px;
   border-top: 1px solid var(--border);
   background: var(--bg-elevated);
@@ -817,7 +825,9 @@
 
 .tab-bar-row {
   display: flex;
+  flex: none;
   align-items: stretch;
+  min-height: 34px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elevated);
 }

@@ -84,3 +84,19 @@ test("关闭最后一个标签回到空状态", async ({ page }) => {
     page.getByRole("heading", { name: "打开一篇 Markdown" }),
   ).toBeVisible();
 });
+
+test("标签栏只占一行高度，不挤压工作区", async ({ page }) => {
+  await openTwoTabs(page);
+
+  const bar = await page.locator(".tab-bar-row").boundingBox();
+  const bench = await page.locator(".workbench").boundingBox();
+  const shell = await page.locator(".app-shell").boundingBox();
+  expect(bar).not.toBeNull();
+  expect(bench).not.toBeNull();
+  expect(shell).not.toBeNull();
+
+  // 回归：.app-shell 曾用固定 3 行 grid，标签栏作为第 4 个子元素被 1fr 行拉满整窗。
+  expect(bar!.height).toBeLessThanOrEqual(40);
+  // 工作区应吃掉除标题栏/标签栏/状态栏以外的全部高度（视口 800）。
+  expect(bench!.height).toBeGreaterThan(shell!.height - 52 - 34 - 28 - 4);
+});
