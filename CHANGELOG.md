@@ -2,6 +2,26 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.10.1] - 2026-10-28
+
+狗粮修复版：修 Windows 标签栏布局错位、补齐 macOS 安装体验。
+
+### 修复
+
+- **标签栏占满整个窗口（Windows 上尤其明显）**：`.app-shell` 用固定 3 行的 `grid-template-rows` 排布标题栏 / 工作区 / 状态栏，而标签栏是按需渲染的第 4 个子元素，没有对应行，落进了 `minmax(0, 1fr)` 那一行被拉伸到整窗高度，工作区反被压成一条 28px 的窄缝。改为纵向 flex（只有 `.workbench` 吃剩余高度），无论有没有标签栏都不会错位。新增 E2E 用例 `标签栏只占一行高度，不挤压工作区` 兜住该回归。
+- **macOS 安装 dmg 后打不开**：根因是安装包未公证，Gatekeeper 弹「Apple 无法验证…」且只有「完成 / 移到废纸篓」。旧 README 指引的「右键 → 打开」自 macOS 15 起已失效。README 与 `docs/06-signing.md` 换成可用路径（`xattr -dr com.apple.quarantine` 或「系统设置 → 隐私与安全性 → 仍要打开」）。
+
+### 优化
+
+- **应用图标换成「墨」字标**：此前用的是 Tauri 脚手架自带的框架 logo（#FFC131 / #24C8DB），用户认不出这是 Marklook，也和 App 内的「墨」标识不一致；且历史图标集本身不统一（`icon.icns` 带深色底板、各 PNG 是纯透明）。现统一由 `tools/generate-app-icon.py` 生成源图 `design/icon-1024.png`，再用 `pnpm tauri icon` 导出全平台，深底米白「墨」在 Windows 浅色任务栏与 macOS 浅色 Dock 上边界清楚。
+- **macOS 安装窗口加引导背景**：此前是默认空窗口（深色背景 + 两个图标），用户不知道该把应用拖到哪。现在有标题「将 Marklook 拖入 Applications 文件夹」、图标之间的指向箭头，以及底部「首次打开：系统设置 → 隐私与安全性 → 仍要打开」的提示。背景由 `tools/generate-dmg-background.py` 生成（3 倍超采样，避免线条毛边），通过 `bundle.macOS.dmg` 接入。
+
+### 工程
+
+- release.yml 增加可选的 macOS 签名 + 公证链路：配好 `APPLE_CERTIFICATE` 等 6 个 Secrets 即自动生效，未配置时走原来的 ad-hoc 分支，不会失败。
+- 打印样式补上 `.tab-bar-row` 的隐藏规则（此前会连标签栏一起打印）。
+- `CONTRIBUTING.md` 增加「打包资源」小节，写明 dmg 背景与图标的生成方式，以及「不要手工替换单个尺寸图标」的原因。
+
 ## [0.10.0] - 2026-10-28
 
 多标签页版本（设计见 [docs/08-multi-tab.md](./docs/08-multi-tab.md)）。

@@ -31,3 +31,6 @@ tests/fixtures/*.pdf
 
 # Local cargo mirror config
 .cargo/
+
+# 本地工作区数据（不含项目内容）
+.workbuddy-ai/
