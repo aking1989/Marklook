@@ -32,6 +32,34 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings &
 
 4. 提交 PR 到 `main`。CI 会跑同样的门禁（ubuntu 前端全量 + macOS/Windows Rust）。
 
+## 打包资源
+
+macOS 安装窗口的背景图 `src-tauri/icons/dmg-background.png` 由脚本生成，改文案或配色后重跑即可
+（需要 Pillow，中文字体用系统的 Hiragino Sans GB）：
+
+```bash
+python3 tools/generate-dmg-background.py
+```
+
+应用图标源图 `design/icon-1024.png` 同样由脚本生成，改完重跑再导出全平台图标：
+
+```bash
+python3 tools/generate-app-icon.py          # 生成 design/icon-1024.png
+pnpm tauri icon design/icon-1024.png        # 导出 icns / ico / 各尺寸 png
+rm -rf src-tauri/icons/android src-tauri/icons/ios   # 桌面项目用不到
+```
+
+**不要手工替换单个尺寸的图标**——历史上 `icon.icns`（带深色底板）和各 PNG（纯透明）
+就是这样变得不一致的。统一从源图重新导出。
+
+图中图标位置必须与 `src-tauri/tauri.conf.json` 的 `bundle.macOS.dmg.appPosition` /
+`applicationFolderPosition` 保持一致——它们是**图标中心点**，不是左上角。窗口 660×400 含标题栏，
+内容区实际约 361pt，所以底部留白给裁切，正文内容不要画到 350pt 以下。
+
+画箭头时注意：**不要按 128pt 格子边界算端点**。实测应用图标可见右缘在 233pt、
+Applications 文件夹可见左缘在 418pt（文件夹图标比格子更宽，且两者视觉中心分别比格子中心
+低约 1.25pt / 4.25pt）。箭头取 `233+8 → 418-8`、垂直取 172.5 才左右对称、上下居中。
+
 ## 提交信息
 
 遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)，描述用中文：

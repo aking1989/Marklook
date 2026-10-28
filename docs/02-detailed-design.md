@@ -2539,7 +2539,9 @@ performance.measure('render', 'render:start', 'render:end');
 
 ### 20.2 图标与品牌
 
-- 使用 `pnpm tauri icon <1024.png>` 生成全平台图标。
+- 源图 `design/icon-1024.png`，由 `tools/generate-app-icon.py` 生成（墨底 #16181B + 米白「墨」Songti Bold），与 App 内 `.brand-mark` 的深底浅字一致。
+- 全平台图标由 `pnpm tauri icon design/icon-1024.png` 生成，**不要手工替换**单个尺寸——历史上 `icon.icns` 与各 PNG 曾不一致（一个带底板、一个纯透明）。
+- 选型依据：Windows 浅色任务栏（#F3F3F3）与 macOS 浅色 Dock 上深底图标边界清楚；深色任务栏（#202020）上底板略融进背景，但白字仍可读。
 - 应用名、bundle id、图标在发布前冻结。
 - 安装包内版权信息与许可证补全。
 
