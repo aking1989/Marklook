@@ -83,9 +83,11 @@ jobs:
       # dmg 但 .DS_Store 缺失，Finder 仍显示默认空窗口（v0.10.1 实测）。
       - name: Build dmg with background (dmgbuild)
         run: |
-          pip3 install dmgbuild
+          # macOS runner 的 Python 是 PEP 668 externally-managed，用 venv 安装。
+          python3 -m venv .dmgbuild-venv
+          ./.dmgbuild-venv/bin/pip install dmgbuild
           VERSION="${GITHUB_REF#refs/tags/}"
-          python3 tools/build-dmg.py \
+          ./.dmgbuild-venv/bin/python tools/build-dmg.py \
             src-tauri/target/universal-apple-darwin/release/bundle/macos/Marklook.app \
             "Marklook_${VERSION}_universal.dmg" \
             src-tauri/icons/dmg-background.png \
