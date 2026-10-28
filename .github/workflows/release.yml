@@ -10,6 +10,10 @@ permissions:
 jobs:
   build-macos:
     runs-on: macos-14
+    env:
+      # secrets 上下文不能直接写在 step 的 if 里，先落到 env 再比较。
+      # 没配证书时（当前状态）走未签名分支，行为与之前一致。
+      HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,8 +37,46 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build universal macOS app
+      # 只有配了 Developer ID 证书才导入钥匙串；签名与公证由 tauri 依据下面的
+      # APPLE_* 环境变量自动完成（缺一不可，否则只签名不公证，用户仍会被拦）。
+      - name: Import Developer ID certificate
+        if: env.HAS_APPLE_CERT == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN=build.keychain
+          KEYCHAIN_PASSWORD=actions
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import certificate.p12 -k "$KEYCHAIN" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          rm -f certificate.p12
+
+      - name: Build universal macOS app (signed + notarized)
+        if: env.HAS_APPLE_CERT == 'true'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: pnpm tauri build --target universal-apple-darwin
+
+      - name: Build universal macOS app (unsigned, ad-hoc)
+        if: env.HAS_APPLE_CERT != 'true'
+        run: pnpm tauri build --target universal-apple-darwin
+
+      - name: Verify signature
+        if: env.HAS_APPLE_CERT == 'true'
+        run: |
+          APP=src-tauri/target/universal-apple-darwin/release/bundle/macos/Marklook.app
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          spctl --assess --type execute --verbose=4 "$APP" || true
+          xcrun stapler validate "$APP" || true
 
       - name: Collect artifacts
         run: |

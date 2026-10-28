@@ -91,12 +91,14 @@
 | macOS 12+（Apple Silicon / Intel） | `Marklook_x.y.z_universal.dmg` | 拖入 Applications |
 | Windows 10 22H2+ / 11（x64） | `Marklook_x.y.z_x64-setup.exe` | NSIS 安装向导，含 WebView2 引导 |
 
-当前为未签名构建，首次打开：
+当前为未签名构建（未做 Apple 公证），首次打开会被系统拦一次：
 
-- **macOS**：右键 Marklook.app → 打开 → 再点「打开」；或 `xattr -d com.apple.quarantine /Applications/Marklook.app`
-- **Windows**：SmartScreen 提示时选「仍要运行」
+- **macOS 15 及以上**：系统会弹「Apple 无法验证"Marklook"…」，弹窗里只有「完成 / 移到废纸篓」，**右键打开也已失效**。正确做法是打开「系统设置 → 隐私与安全性」，向下滚到「安全性」，在「已阻止使用"Marklook"」处点「仍要打开」，再输入登录密码。
+  终端用户可直接清掉隔离属性，一步到位：
+  `xattr -dr com.apple.quarantine /Applications/Marklook.app`
+- **Windows**：SmartScreen 提示时点「更多信息 → 仍要运行」。
 
-安装包完整性见 Release 内附的 `SHA256SUMS.txt`。签名与公证的启用计划见 [docs/06-signing.md](docs/06-signing.md)。
+安装包完整性见 Release 内附的 `SHA256SUMS.txt`。彻底消除上述提示需要 Apple Developer ID 签名 + 公证（$99/年），CI 已预留对应开关，见 [docs/06-signing.md](docs/06-signing.md)。
 
 ## ⌨️ 快捷键
 
