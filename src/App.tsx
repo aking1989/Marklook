@@ -462,9 +462,13 @@ export default function App() {
           // 草稿读取失败不影响打开。
         }
       } catch (caught) {
+        const message = errorMessage(caught);
         const activeNow = useTabsStore.getState().activeId;
         if (activeNow !== null) {
-          updateTab(activeNow, { error: errorMessage(caught) });
+          updateTab(activeNow, { error: message });
+        } else {
+          // 无打开文档时错误无处挂（如「最近」里的失效条目），用通知显示。
+          showNotice(`打开失败：${message}`);
         }
       }
     },

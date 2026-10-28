@@ -22,6 +22,13 @@
 - 打印样式补上 `.tab-bar-row` 的隐藏规则（此前会连标签栏一起打印）。
 - `CONTRIBUTING.md` 增加「打包资源」小节，写明 dmg 背景与图标的生成方式，以及「不要手工替换单个尺寸图标」的原因。
 
+## [0.10.2] - 2026-10-28
+
+### 修复
+
+- **macOS 安装 dmg 缺少引导背景**：Tauri 自带的 `bundle_dmg.sh` 依赖 AppleScript 控制 Finder，在 CI 无头 runner 上不会真正执行——背景图虽被拷入 dmg，但 `.DS_Store`（视图设置）缺失，Finder 仍显示默认空窗口。改用 `dmgbuild`（纯 Python 写 `.DS_Store`，无 GUI 依赖），`tools/build-dmg.py` 入库可复现。
+- **「最近」列表点击失效条目无任何反馈**：没有打开文档时错误提示无处显示。现在用顶部通知展示「打开失败：原因」。
+
 ## [0.10.0] - 2026-10-28
 
 多标签页版本（设计见 [docs/08-multi-tab.md](./docs/08-multi-tab.md)）。

@@ -64,11 +64,11 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm tauri build --target universal-apple-darwin
+        run: pnpm tauri build --target universal-apple-darwin --bundles app
 
       - name: Build universal macOS app (unsigned, ad-hoc)
         if: env.HAS_APPLE_CERT != 'true'
-        run: pnpm tauri build --target universal-apple-darwin
+        run: pnpm tauri build --target universal-apple-darwin --bundles app
 
       - name: Verify signature
         if: env.HAS_APPLE_CERT == 'true'
@@ -78,11 +78,23 @@ jobs:
           spctl --assess --type execute --verbose=4 "$APP" || true
           xcrun stapler validate "$APP" || true
 
+      # dmg 改由 dmgbuild 制作（纯 Python 写 .DS_Store）：Tauri 自带的 bundle_dmg.sh
+      # 依赖 AppleScript 控制 Finder，在无头 runner 上不会真正执行——背景图虽被拷入
+      # dmg 但 .DS_Store 缺失，Finder 仍显示默认空窗口（v0.10.1 实测）。
+      - name: Build dmg with background (dmgbuild)
+        run: |
+          pip3 install dmgbuild
+          VERSION="${GITHUB_REF#refs/tags/}"
+          python3 tools/build-dmg.py \
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/Marklook.app \
+            "Marklook_${VERSION}_universal.dmg" \
+            src-tauri/icons/dmg-background.png \
+            "${VERSION}"
+
       - name: Collect artifacts
         run: |
           mkdir -p artifacts
-          cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg artifacts/ || true
-          cp src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz artifacts/ || true
+          cp "Marklook_${GITHUB_REF#refs/tags/}_universal.dmg" artifacts/
           ls -la artifacts
 
       - uses: actions/upload-artifact@v4
