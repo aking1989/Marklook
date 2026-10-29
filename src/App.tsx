@@ -1290,14 +1290,74 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header className="titlebar">
-        <div className="brand">
-          <span className="brand-mark">墨</span>
-          <span className="brand-name">墨览</span>
-        </div>
-        <div className="doc-title" title={path ?? undefined}>
-          {render?.title ?? fileName(path)}
-        </div>
+      {/* 顶栏合并：标签 + ＋ + 工具栏，取代原来的「标题栏 + 标签栏」两行。
+          文档标题已经由窗口标题（`xxx · 墨览`）和活动标签承载，不再单独占一行。 */}
+      <div className={"tab-bar-row" + (hasTabs ? " has-tabs" : "")}>
+        {hasTabs && (
+          /* tablist 的直接子元素必须全是 tab：＋ 按钮放在 tablist 外 */
+          <div className="tab-bar" role="tablist" aria-label="打开的文档">
+            {tabs.map((tab) => (
+              <div
+                key={tab.id}
+                role="tab"
+                aria-selected={tab.id === activeId}
+                aria-controls="tab-panel"
+                tabIndex={tab.id === activeId ? 0 : -1}
+                className={
+                  "tab" +
+                  (tab.id === activeId ? " active" : "") +
+                  (tab.conflict ? " has-conflict" : "")
+                }
+                onClick={() => activateTabId(tab.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Delete") {
+                    event.stopPropagation();
+                    void closeTabById(tab.id);
+                  }
+                }}
+                title={tab.path}
+              >
+                <span
+                  className={
+                    "tab-dot" +
+                    (tab.conflict ? " conflict" : tab.dirty ? " dirty" : "")
+                  }
+                  aria-label={
+                    tab.conflict
+                      ? `${tab.title} 有冲突`
+                      : tab.dirty
+                        ? `${tab.title} 未保存`
+                        : undefined
+                  }
+                />
+                <span className="tab-name">{tab.title}</span>
+                {/* 键盘关闭走 tab 的 Delete（WAI-ARIA tabs 扩展惯例）；
+                  span 不构成嵌套交互元素，axe nested-interactive 通过 */}
+                <span
+                  className="tab-close"
+                  role="presentation"
+                  title={`关闭 ${tab.title}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void closeTabById(tab.id);
+                  }}
+                >
+                  <X size={12} />
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {hasTabs && (
+          <button
+            className="tab-add"
+            onClick={() => void openFile()}
+            aria-label="打开文件到新标签"
+            title={`打开文件到新标签 (${key("openFile")})`}
+          >
+            ＋
+          </button>
+        )}
         <div className="toolbar">
           <button
             className="tool-btn"
@@ -1359,73 +1419,7 @@ export default function App() {
             <ThemeIcon size={16} />
           </button>
         </div>
-      </header>
-
-      {hasTabs && (
-        <div className="tab-bar-row">
-          {/* tablist 的直接子元素必须全是 tab：＋ 按钮放在 tablist 外 */}
-          <div className="tab-bar" role="tablist" aria-label="打开的文档">
-            {tabs.map((tab) => (
-              <div
-                key={tab.id}
-                role="tab"
-                aria-selected={tab.id === activeId}
-                aria-controls="tab-panel"
-                tabIndex={tab.id === activeId ? 0 : -1}
-                className={
-                  "tab" +
-                  (tab.id === activeId ? " active" : "") +
-                  (tab.conflict ? " has-conflict" : "")
-                }
-                onClick={() => activateTabId(tab.id)}
-                onKeyDown={(event) => {
-                  if (event.key === "Delete") {
-                    event.stopPropagation();
-                    void closeTabById(tab.id);
-                  }
-                }}
-                title={tab.path}
-              >
-                <span
-                  className={
-                    "tab-dot" +
-                    (tab.conflict ? " conflict" : tab.dirty ? " dirty" : "")
-                  }
-                  aria-label={
-                    tab.conflict
-                      ? `${tab.title} 有冲突`
-                      : tab.dirty
-                        ? `${tab.title} 未保存`
-                        : undefined
-                  }
-                />
-                <span className="tab-name">{tab.title}</span>
-                {/* 键盘关闭走 tab 的 Delete（WAI-ARIA tabs 扩展惯例）；
-                  span 不构成嵌套交互元素，axe nested-interactive 通过 */}
-                <span
-                  className="tab-close"
-                  role="presentation"
-                  title={`关闭 ${tab.title}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void closeTabById(tab.id);
-                  }}
-                >
-                  <X size={12} />
-                </span>
-              </div>
-            ))}
-          </div>
-          <button
-            className="tab-add"
-            onClick={() => void openFile()}
-            aria-label="打开文件到新标签"
-            title={`打开文件到新标签 (${key("openFile")})`}
-          >
-            ＋
-          </button>
-        </div>
-      )}
+      </div>
 
       <div className="workbench" id="tab-panel">
         <aside className="sidebar">
