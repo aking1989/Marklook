@@ -11,6 +11,12 @@ pub fn print_window<R: tauri::Runtime>(
         .map_err(|error| CommandError::Io(error.to_string()))
 }
 
+/// 路径是否仍然存在（清理失效的「最近」记录）。
+#[tauri::command]
+pub fn path_exists(path: String) -> bool {
+    std::path::Path::new(&path).exists()
+}
+
 /// 前端确认关闭后调用：置 force_close 并真正关窗。
 #[tauri::command]
 pub fn close_window<R: tauri::Runtime>(

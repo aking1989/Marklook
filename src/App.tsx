@@ -4,6 +4,7 @@ import {
   FileText,
   FolderOpen,
   Moon,
+  PanelRight,
   Pencil,
   Printer,
   RefreshCw,
@@ -20,6 +21,7 @@ import {
 import { ReaderView, type ReaderHandle } from "./features/reader/ReaderView";
 import { SearchPanel } from "./features/search/SearchPanel";
 import { FileTree } from "./features/workspace/FileTree";
+import { ContextMenu, type ContextMenuItem } from "./features/menu/ContextMenu";
 import {
   buildStandaloneHtml,
   waitForRenderedFigures,
@@ -120,7 +122,6 @@ export default function App() {
   // 活动标签的派生状态（无标签时为空态）。
   const path = activeTab?.path ?? null;
   const content = activeTab?.content ?? "";
-  const bom = activeTab?.bom ?? false;
   const mode = activeTab?.mode ?? "read";
   const status: DocStatus = activeTab?.status ?? "clean";
   const dirty = activeTab?.dirty ?? false;
@@ -160,7 +161,8 @@ export default function App() {
     toggleDir,
     revealPath,
   } = useWorkspaceStore();
-  const { recentFiles, pushFile, pushWorkspace } = useRecentsStore();
+  const { recentFiles, pushFile, pushWorkspace, removeFile, removeWorkspace } =
+    useRecentsStore();
   const isMac = isMacPlatform();
   const key = (id: ShortcutId) => shortcutLabel(id, isMac);
 
@@ -173,6 +175,18 @@ export default function App() {
   const outlineListRef = useRef<HTMLUListElement>(null);
   const pendingEditLine = useRef(1);
   const pendingReadLine = useRef(1);
+  /** 右侧面板（大纲 + 外观）：默认收起，点工具栏按钮展开。 */
+  const [rightOpen, setRightOpen] = useState(false);
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    items: ContextMenuItem[];
+  } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  /** closeTabById 定义在下方，右键菜单通过 ref 调用最新实现。 */
+  const closeTabByIdRef = useRef<(id: string) => Promise<unknown> | void>(
+    () => undefined,
+  );
   const workspaceRefreshTimer = useRef<number | null>(null);
   /** 最近关闭的标签路径（⌘⇧T 重开，保留 10 个）。 */
   const closedTabsRef = useRef<string[]>([]);
@@ -193,6 +207,100 @@ export default function App() {
   useEffect(() => {
     void platform.cleanupDrafts().catch(() => undefined);
   }, []);
+
+  // 启动时清理已失效的「最近」记录：文件/工作区被删掉后不该继续留在列表里，
+  // 否则点开只会报错。
+  useEffect(() => {
+    void (async () => {
+      const { recentFiles: files, recentWorkspaces: roots } =
+        useRecentsStore.getState();
+      for (const entry of files) {
+        const exists = await platform.pathExists(entry.path).catch(() => true);
+        if (!exists) removeFile(entry.path);
+      }
+      for (const entry of roots) {
+        const exists = await platform.pathExists(entry.path).catch(() => true);
+        if (!exists) removeWorkspace(entry.path);
+      }
+    })();
+    // 仅启动时执行一次。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** 在系统文件管理器中定位（右键菜单共用）。 */
+  const revealInFileManager = useCallback(
+    async (target: string | null | undefined) => {
+      if (!target) return;
+      try {
+        await platform.revealInFileManager(target);
+      } catch (caught) {
+        showNotice(`无法打开所在位置：${errorMessage(caught)}`);
+      }
+    },
+    [showNotice],
+  );
+
+  const openTabMenu = useCallback(
+    (tabId: string, event: React.MouseEvent) => {
+      event.preventDefault();
+      const tab = getTab(tabId);
+      if (!tab) return;
+      setMenu({
+        x: event.clientX,
+        y: event.clientY,
+        items: [
+          {
+            label: "在文件管理器中显示",
+            disabled: !tab.path,
+            onSelect: () => void revealInFileManager(tab.path),
+          },
+          {
+            label: "关闭标签",
+            onSelect: () => void closeTabByIdRef.current(tabId),
+          },
+        ],
+      });
+    },
+    [getTab, revealInFileManager],
+  );
+
+  const openTreeMenu = useCallback(
+    (node: { path: string }, event: React.MouseEvent) => {
+      event.preventDefault();
+      setMenu({
+        x: event.clientX,
+        y: event.clientY,
+        items: [
+          {
+            label: "在文件管理器中显示",
+            onSelect: () => void revealInFileManager(node.path),
+          },
+        ],
+      });
+    },
+    [revealInFileManager],
+  );
+
+  const openRecentMenu = useCallback(
+    (entry: { path: string }, event: React.MouseEvent) => {
+      event.preventDefault();
+      setMenu({
+        x: event.clientX,
+        y: event.clientY,
+        items: [
+          {
+            label: "在文件管理器中显示",
+            onSelect: () => void revealInFileManager(entry.path),
+          },
+          {
+            label: "从列表中移除",
+            onSelect: () => removeFile(entry.path),
+          },
+        ],
+      });
+    },
+    [revealInFileManager, removeFile],
+  );
 
   // 文件关联冷启动：打开命令行传入的 .md（多路径 = 多标签）。
   const openPathRef = useRef<(target: string) => Promise<void>>(
@@ -463,6 +571,10 @@ export default function App() {
         }
       } catch (caught) {
         const message = errorMessage(caught);
+        // 文件已被删除/移动：同步从「最近」里移除，避免列表里留下打不开的项。
+        if (caught instanceof PlatformError && caught.code === "NOT_FOUND") {
+          removeFile(normalized);
+        }
         const activeNow = useTabsStore.getState().activeId;
         if (activeNow !== null) {
           updateTab(activeNow, { error: message });
@@ -478,6 +590,7 @@ export default function App() {
       openTabInStore,
       path,
       pushFile,
+      removeFile,
       replaceInStore,
       restartDocWatch,
       revealPath,
@@ -1194,7 +1307,8 @@ export default function App() {
     list
       .querySelector<HTMLLIElement>("li.active")
       ?.scrollIntoView({ block: "nearest" });
-  }, [activeOutlineId]);
+    // rightOpen 变化时面板刚挂载，需要重新定位当前项。
+  }, [activeOutlineId, rightOpen]);
 
   // 外观设置 → 根元素 CSS 变量（排版与侧栏即时生效）。
   useEffect(() => {
@@ -1272,6 +1386,7 @@ export default function App() {
   // ref 每次渲染刷新，事件订阅与冷启动始终调用最新实现。
   openPathRef.current = openPath;
   confirmQuitRef.current = confirmAndCloseWindow;
+  closeTabByIdRef.current = closeTabById;
 
   // 原生菜单等应用事件调用最新动作（ref 每次渲染刷新）。
   appActionsRef.current = {
@@ -1309,6 +1424,7 @@ export default function App() {
                   (tab.conflict ? " has-conflict" : "")
                 }
                 onClick={() => activateTabId(tab.id)}
+                onContextMenu={(event) => openTabMenu(tab.id, event)}
                 onKeyDown={(event) => {
                   if (event.key === "Delete") {
                     event.stopPropagation();
@@ -1418,69 +1534,70 @@ export default function App() {
           >
             <ThemeIcon size={16} />
           </button>
+          <button
+            className={"tool-btn icon-only" + (rightOpen ? " tool-btn-on" : "")}
+            onClick={() => setRightOpen((open) => !open)}
+            aria-pressed={rightOpen}
+            aria-label="大纲与外观"
+            title="大纲与外观"
+          >
+            <PanelRight size={16} />
+          </button>
         </div>
       </div>
 
-      <div className="workbench" id="tab-panel">
+      <div
+        className={"workbench" + (rightOpen ? " with-right" : "")}
+        id="tab-panel"
+      >
         <aside className="sidebar">
-          <section className="side-section workspace-section">
-            <h2>工作区</h2>
-            {workspaceRoot ? (
-              <>
-                <div className="workspace-toolbar">
-                  <span className="workspace-root" title={workspaceRoot}>
-                    {fileName(workspaceRoot)}
-                  </span>
-                  <button
-                    className="icon-btn"
-                    onClick={() => void refreshWorkspace()}
-                    title="刷新工作区"
-                    aria-label="刷新工作区"
-                    disabled={scanning}
-                  >
-                    <RefreshCw size={13} />
-                  </button>
-                </div>
-                <div className="file-tree-scroll">
-                  <FileTree
-                    nodes={tree}
-                    expanded={expanded}
-                    activePath={path}
-                    onToggleDir={toggleDir}
-                    onOpenFile={(filePath) => void openPath(filePath)}
-                  />
-                </div>
-                {workspaceTruncated && (
-                  <p className="tree-truncated">仅显示前 10,000 个条目</p>
-                )}
-                <SearchPanel
-                  key={workspaceRoot}
-                  onOpenResult={(resultPath, line) =>
-                    void openPath(resultPath, { gotoLine: line })
-                  }
-                  onRequestIndex={requestSearchIndex}
+          {workspaceRoot ? (
+            <>
+              <div className="workspace-toolbar">
+                <span className="workspace-root" title={workspaceRoot}>
+                  {fileName(workspaceRoot)}
+                </span>
+                <button
+                  className="icon-btn"
+                  onClick={() => void refreshWorkspace()}
+                  title="刷新工作区"
+                  aria-label="刷新工作区"
+                  disabled={scanning}
+                >
+                  <RefreshCw size={13} />
+                </button>
+              </div>
+              <div className="file-tree-scroll">
+                <FileTree
+                  nodes={tree}
+                  expanded={expanded}
+                  activePath={path}
+                  onToggleDir={toggleDir}
+                  onOpenFile={(filePath) => void openPath(filePath)}
+                  onNodeContextMenu={openTreeMenu}
                 />
-              </>
-            ) : (
-              <button
-                className="primary-btn slim"
-                onClick={() => void openFolder()}
-              >
-                <FolderOpen size={14} />
-                打开文件夹
-              </button>
-            )}
-          </section>
-
-          {recentFiles.length > 0 && !workspaceRoot && (
+              </div>
+              {workspaceTruncated && (
+                <p className="tree-truncated">仅显示前 10,000 个条目</p>
+              )}
+              <SearchPanel
+                key={workspaceRoot}
+                onOpenResult={(resultPath, line) =>
+                  void openPath(resultPath, { gotoLine: line })
+                }
+                onRequestIndex={requestSearchIndex}
+              />
+            </>
+          ) : recentFiles.length > 0 ? (
             <section className="side-section">
               <h2>最近</h2>
               <ul className="recent-list">
-                {recentFiles.slice(0, 5).map((entry) => (
+                {recentFiles.slice(0, 8).map((entry) => (
                   <li key={entry.path}>
                     <button
                       className="recent-item"
                       onClick={() => void openPath(entry.path)}
+                      onContextMenu={(event) => openRecentMenu(entry, event)}
                       title={entry.path}
                     >
                       <FileText size={12} />
@@ -1490,170 +1607,7 @@ export default function App() {
                 ))}
               </ul>
             </section>
-          )}
-
-          <section className="side-section">
-            <h2>文档</h2>
-            {path ? (
-              <>
-                <div className="file-path" title={path}>
-                  {fileName(path)}
-                </div>
-                <dl className="doc-stats">
-                  <div>
-                    <dt>字数</dt>
-                    <dd>{render?.meta.wordCount ?? 0}</dd>
-                  </div>
-                  <div>
-                    <dt>阅读</dt>
-                    <dd>{render?.meta.readingMinutes ?? 0} 分钟</dd>
-                  </div>
-                  <div>
-                    <dt>编码</dt>
-                    <dd>{bom ? "UTF-8 BOM" : "UTF-8"}</dd>
-                  </div>
-                </dl>
-              </>
-            ) : (
-              <p className="muted">还没有打开文档</p>
-            )}
-          </section>
-
-          {render && render.outline.length > 0 && (
-            <section className="side-section outline">
-              <h2>大纲</h2>
-              <ul ref={outlineListRef}>
-                {render.outline.map((item) => (
-                  <li
-                    key={`${item.line}-${item.id}`}
-                    className={item.id === activeOutlineId ? "active" : ""}
-                    style={{ paddingLeft: (item.depth - 1) * 12 }}
-                  >
-                    <button onClick={() => jumpTo(item.line)}>
-                      {item.text}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          <section className="side-section">
-            <h2>外观</h2>
-            <div className="setting-row">
-              <span>字号</span>
-              <div className="stepper">
-                <button
-                  onClick={() => setFontSize(fontSize - 1)}
-                  aria-label="减小字号"
-                >
-                  −
-                </button>
-                <span>{fontSize}</span>
-                <button
-                  onClick={() => setFontSize(fontSize + 1)}
-                  aria-label="增大字号"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-            <div className="setting-row">
-              <span>行高</span>
-              <div className="stepper">
-                <button
-                  onClick={() => setLineHeight(lineHeight - 0.1)}
-                  aria-label="减小行高"
-                >
-                  −
-                </button>
-                <span>{lineHeight.toFixed(1)}</span>
-                <button
-                  onClick={() => setLineHeight(lineHeight + 0.1)}
-                  aria-label="增大行高"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-            <div className="setting-row">
-              <span>栏宽</span>
-              <div className="stepper">
-                <button
-                  onClick={() => setContentWidth(contentWidth - 40)}
-                  aria-label="减小栏宽"
-                >
-                  −
-                </button>
-                <span>{contentWidth}</span>
-                <button
-                  onClick={() => setContentWidth(contentWidth + 40)}
-                  aria-label="增大栏宽"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-            <div className="setting-row">
-              <span>主题</span>
-              <button className="text-btn" onClick={cycleTheme}>
-                {THEME_LABEL[theme]}
-              </button>
-            </div>
-            <div className="setting-row">
-              <span>字体</span>
-              <button
-                className="text-btn"
-                onClick={() =>
-                  setReadingFont(readingFont === "serif" ? "sans" : "serif")
-                }
-              >
-                {readingFont === "serif" ? "衬线" : "无衬线"}
-              </button>
-            </div>
-            <div className="setting-row">
-              <span>远程图片</span>
-              <button
-                className="text-btn"
-                onClick={() => setAllowRemoteImages(!allowRemoteImages)}
-                title="默认阻止所有网络图片请求；开启后仍需逐张点击加载"
-              >
-                {allowRemoteImages ? "点击加载" : "已阻止"}
-              </button>
-            </div>
-          </section>
-
-          <section className="side-section shortcuts">
-            <h2>快捷键</h2>
-            <div className="shortcut-row">
-              <span>打开</span>
-              <kbd>{key("openFile")}</kbd>
-            </div>
-            <div className="shortcut-row">
-              <span>阅读 / 源码</span>
-              <kbd>{key("toggleMode")}</kbd>
-            </div>
-            <div className="shortcut-row">
-              <span>保存</span>
-              <kbd>{key("save")}</kbd>
-            </div>
-            <div className="shortcut-row">
-              <span>导出 HTML</span>
-              <kbd>{key("exportHtml")}</kbd>
-            </div>
-            <div className="shortcut-row">
-              <span>打印 / PDF</span>
-              <kbd>{key("print")}</kbd>
-            </div>
-            <div className="shortcut-row">
-              <span>关闭标签</span>
-              <kbd>{key("closeTab")}</kbd>
-            </div>
-            <div className="shortcut-row">
-              <span>上 / 下一个标签</span>
-              <kbd>{isMac ? "⌘⇧[ ]" : "Ctrl+Tab"}</kbd>
-            </div>
-          </section>
+          ) : null}
         </aside>
 
         {/* 侧栏拖宽手柄：pointer 事件 + Pointer Capture，宽度入设置持久化 */}
@@ -1803,6 +1757,146 @@ export default function App() {
             </div>
           )}
         </main>
+
+        {rightOpen && (
+          <aside className="rightbar" aria-label="大纲与外观">
+            {render && render.outline.length > 0 && (
+              <section className="side-section outline">
+                <h2>大纲</h2>
+                <ul ref={outlineListRef}>
+                  {render.outline.map((item) => (
+                    <li
+                      key={`${item.line}-${item.id}`}
+                      className={item.id === activeOutlineId ? "active" : ""}
+                      style={{ paddingLeft: (item.depth - 1) * 12 }}
+                    >
+                      <button onClick={() => jumpTo(item.line)}>
+                        {item.text}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <section className="side-section">
+              <h2>外观</h2>
+              <div className="setting-row">
+                <span>字号</span>
+                <div className="stepper">
+                  <button
+                    onClick={() => setFontSize(fontSize - 1)}
+                    aria-label="减小字号"
+                  >
+                    −
+                  </button>
+                  <span>{fontSize}</span>
+                  <button
+                    onClick={() => setFontSize(fontSize + 1)}
+                    aria-label="增大字号"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div className="setting-row">
+                <span>行高</span>
+                <div className="stepper">
+                  <button
+                    onClick={() => setLineHeight(lineHeight - 0.1)}
+                    aria-label="减小行高"
+                  >
+                    −
+                  </button>
+                  <span>{lineHeight.toFixed(1)}</span>
+                  <button
+                    onClick={() => setLineHeight(lineHeight + 0.1)}
+                    aria-label="增大行高"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div className="setting-row">
+                <span>栏宽</span>
+                <div className="stepper">
+                  <button
+                    onClick={() => setContentWidth(contentWidth - 40)}
+                    aria-label="减小栏宽"
+                  >
+                    −
+                  </button>
+                  <span>{contentWidth}</span>
+                  <button
+                    onClick={() => setContentWidth(contentWidth + 40)}
+                    aria-label="增大栏宽"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div className="setting-row">
+                <span>主题</span>
+                <button className="text-btn" onClick={cycleTheme}>
+                  {THEME_LABEL[theme]}
+                </button>
+              </div>
+              <div className="setting-row">
+                <span>字体</span>
+                <button
+                  className="text-btn"
+                  onClick={() =>
+                    setReadingFont(readingFont === "serif" ? "sans" : "serif")
+                  }
+                >
+                  {readingFont === "serif" ? "衬线" : "无衬线"}
+                </button>
+              </div>
+              <div className="setting-row">
+                <span>远程图片</span>
+                <button
+                  className="text-btn"
+                  onClick={() => setAllowRemoteImages(!allowRemoteImages)}
+                  title="默认阻止所有网络图片请求；开启后仍需逐张点击加载"
+                >
+                  {allowRemoteImages ? "点击加载" : "已阻止"}
+                </button>
+              </div>
+            </section>
+
+            <section className="side-section shortcuts">
+              <h2>快捷键</h2>
+              <div className="shortcut-row">
+                <span>打开</span>
+                <kbd>{key("openFile")}</kbd>
+              </div>
+              <div className="shortcut-row">
+                <span>阅读 / 源码</span>
+                <kbd>{key("toggleMode")}</kbd>
+              </div>
+              <div className="shortcut-row">
+                <span>保存</span>
+                <kbd>{key("save")}</kbd>
+              </div>
+              <div className="shortcut-row">
+                <span>导出 HTML</span>
+                <kbd>{key("exportHtml")}</kbd>
+              </div>
+              <div className="shortcut-row">
+                <span>打印 / PDF</span>
+                <kbd>{key("print")}</kbd>
+              </div>
+              <div className="shortcut-row">
+                <span>关闭标签</span>
+                <kbd>{key("closeTab")}</kbd>
+              </div>
+              <div className="shortcut-row">
+                <span>上 / 下一个标签</span>
+                <kbd>{isMac ? "⌘⇧[ ]" : "Ctrl+Tab"}</kbd>
+              </div>
+            </section>
+          </aside>
+        )}
       </div>
 
       <footer className="statusbar">
@@ -1827,6 +1921,15 @@ export default function App() {
           <span className="mode-pill">{mode === "read" ? "阅读" : "源码"}</span>
         </span>
       </footer>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menu.items}
+          onClose={closeMenu}
+        />
+      )}
     </div>
   );
 }

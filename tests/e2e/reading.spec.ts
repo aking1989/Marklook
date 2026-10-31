@@ -8,6 +8,12 @@ async function openSampleDoc(page: import("@playwright/test").Page) {
   ).toBeVisible();
 }
 
+/** 大纲与外观都在右侧面板，默认收起。 */
+async function openRightPanel(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "大纲与外观" }).click();
+  await expect(page.locator(".rightbar")).toBeVisible();
+}
+
 test("公式、表格与远程图片占位", async ({ page }) => {
   await openSampleDoc(page);
 
@@ -51,6 +57,7 @@ test("代码块复制按钮", async ({ page }) => {
 
 test("大纲点击跳转与当前项高亮", async ({ page }) => {
   await openSampleDoc(page);
+  await openRightPanel(page);
 
   await page.getByRole("button", { name: "渲染能力" }).click();
   await page.waitForTimeout(400);
@@ -71,6 +78,7 @@ test("大纲点击跳转与当前项高亮", async ({ page }) => {
 
 test("排版设置即时生效", async ({ page }) => {
   await openSampleDoc(page);
+  await openRightPanel(page);
 
   const root = page.locator("html");
   const fontVar = (name: string) =>
@@ -110,6 +118,7 @@ test("排版设置即时生效", async ({ page }) => {
 
 test("远程图片点击加载（策略开启后）", async ({ page }) => {
   await openSampleDoc(page);
+  await openRightPanel(page);
 
   // 默认策略下没有加载按钮。
   await expect(page.locator(".load-remote-btn")).toHaveCount(0);

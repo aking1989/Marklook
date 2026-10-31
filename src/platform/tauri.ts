@@ -1,5 +1,6 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   PlatformError,
   type DraftRecord,
@@ -84,6 +85,16 @@ export const tauriPlatform: Platform = {
     }),
 
   print: () => call<void>("print_window"),
+
+  async revealInFileManager(path: string): Promise<void> {
+    try {
+      await revealItemInDir(path);
+    } catch (error) {
+      throw normalizeError(error);
+    }
+  },
+
+  pathExists: (path) => call<boolean>("path_exists", { path }),
 
   readAssetDataUrl: (absolutePath) =>
     call<string | null>("read_asset_data_url", { path: absolutePath }),

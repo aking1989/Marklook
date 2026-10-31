@@ -93,6 +93,10 @@ export interface Platform {
     options: WriteOptions,
   ): Promise<WriteResult>;
   print(): Promise<void>;
+  /** 在系统默认文件管理器中定位该路径（macOS Finder / Windows 资源管理器）。 */
+  revealInFileManager(path: string): Promise<void>;
+  /** 路径是否仍然存在（清理失效的「最近」记录用）。 */
+  pathExists(path: string): Promise<boolean>;
   /** 本地资产 → data URL（导出 HTML 内联图片用）。 */
   readAssetDataUrl(absolutePath: string): Promise<string | null>;
   /** 导出保存对话框 + 写文件，返回保存路径；取消返回 null。 */

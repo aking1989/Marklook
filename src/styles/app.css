@@ -72,12 +72,32 @@
   min-height: 0;
 }
 
+/* 右侧面板展开时多一列 */
+.workbench.with-right {
+  grid-template-columns: var(--sidebar-width) 5px minmax(0, 1fr) 260px;
+}
+
 .sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 12px 12px;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+/* 右侧面板：大纲 + 外观 + 快捷键 */
+.rightbar {
   min-height: 0;
   padding: 16px 14px 40px;
   overflow-y: auto;
-  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   background: var(--bg-elevated);
+}
+
+.rightbar .side-section:last-child {
+  margin-bottom: 0;
 }
 
 .side-section {
@@ -364,11 +384,13 @@
 }
 
 @media (max-width: 720px) {
-  .workbench {
+  .workbench,
+  .workbench.with-right {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .sidebar {
+  .sidebar,
+  .rightbar {
     display: none;
   }
 }
@@ -418,11 +440,14 @@
 }
 
 .file-tree-scroll {
-  overflow-y: auto;
-  max-height: 40vh;
+  flex: 1 1 auto;
   min-height: 60px;
+  overflow-y: auto;
 }
 
+/* 根 ul 也要重置：只写 `.file-tree ul` 的话根节点会保留浏览器默认的
+ * padding-inline-start(40px)，整棵树被推出一大块空白。 */
+.file-tree,
 .file-tree ul {
   padding: 0;
   margin: 0;
@@ -789,6 +814,45 @@
 }
 
 .tab-add:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+/* 右键菜单（portal 到 body，fixed 定位） */
+.context-menu {
+  position: fixed;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  min-width: 176px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+.context-menu-item {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.context-menu-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.context-menu-item:disabled {
+  opacity: 0.42;
+}
+
+/* 工具栏里处于开启状态的开关按钮（如右侧面板） */
+.tool-btn-on {
   background: var(--bg-hover);
   color: var(--fg);
 }

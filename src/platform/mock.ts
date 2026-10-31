@@ -313,6 +313,22 @@ export const mockPlatform: Platform = {
     window.print();
   },
 
+  /** 浏览器里没有文件管理器：记录调用，供 E2E 断言（window.__mockReveals）。 */
+  async revealInFileManager(path: string) {
+    const target = window as unknown as { __mockReveals?: string[] };
+    target.__mockReveals = [...(target.__mockReveals ?? []), path];
+  },
+
+  async pathExists(path: string): Promise<boolean> {
+    if (files.has(path)) return true;
+    // 目录：只要下面还有文件就算存在。
+    const prefix = path.endsWith("/") ? path : `${path}/`;
+    for (const key of files.keys()) {
+      if (key.startsWith(prefix)) return true;
+    }
+    return false;
+  },
+
   async readAssetDataUrl(_absolutePath: string): Promise<string | null> {
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40">` +

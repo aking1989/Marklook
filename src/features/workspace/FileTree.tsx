@@ -1,3 +1,4 @@
+import type { MouseEvent } from "react";
 import { ChevronDown, ChevronRight, FileText, Folder } from "lucide-react";
 import type { TreeNode } from "../../stores/workspaceStore";
 
@@ -7,6 +8,8 @@ interface FileTreeProps {
   activePath: string | null;
   onToggleDir: (path: string) => void;
   onOpenFile: (path: string) => void;
+  /** 右键：由上层弹出菜单（在文件管理器中显示等）。 */
+  onNodeContextMenu: (node: TreeNode, event: MouseEvent) => void;
 }
 
 export function FileTree({
@@ -15,6 +18,7 @@ export function FileTree({
   activePath,
   onToggleDir,
   onOpenFile,
+  onNodeContextMenu,
 }: FileTreeProps) {
   return (
     <ul className="file-tree" role="tree">
@@ -27,6 +31,7 @@ export function FileTree({
           activePath={activePath}
           onToggleDir={onToggleDir}
           onOpenFile={onOpenFile}
+          onNodeContextMenu={onNodeContextMenu}
         />
       ))}
     </ul>
@@ -40,6 +45,7 @@ interface TreeRowProps {
   activePath: string | null;
   onToggleDir: (path: string) => void;
   onOpenFile: (path: string) => void;
+  onNodeContextMenu: (node: TreeNode, event: MouseEvent) => void;
 }
 
 function TreeRow({
@@ -49,6 +55,7 @@ function TreeRow({
   activePath,
   onToggleDir,
   onOpenFile,
+  onNodeContextMenu,
 }: TreeRowProps) {
   const isOpen = expanded[node.path] ?? false;
   const isActive = node.path === activePath;
@@ -60,6 +67,10 @@ function TreeRow({
           className={`tree-row${isActive ? " active" : ""}`}
           style={{ paddingLeft: depth * 12 + 6 }}
           onClick={() => onToggleDir(node.path)}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            onNodeContextMenu(node, event);
+          }}
           title={node.path}
         >
           {isOpen ? (
@@ -81,6 +92,7 @@ function TreeRow({
                 activePath={activePath}
                 onToggleDir={onToggleDir}
                 onOpenFile={onOpenFile}
+                onNodeContextMenu={onNodeContextMenu}
               />
             ))}
           </ul>
@@ -95,6 +107,10 @@ function TreeRow({
         className={`tree-row${isActive ? " active" : ""}`}
         style={{ paddingLeft: depth * 12 + 6 + 13 }}
         onClick={() => onOpenFile(node.path)}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          onNodeContextMenu(node, event);
+        }}
         title={node.path}
       >
         <FileText size={13} className="tree-icon" />

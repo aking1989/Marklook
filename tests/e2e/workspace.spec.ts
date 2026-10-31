@@ -109,6 +109,8 @@ test("快捷键文案随运行平台显示", async ({ page }) => {
       });
     }, platform);
     await page.goto("/");
+    // 快捷键表在右侧面板，默认收起。
+    await page.getByRole("button", { name: "大纲与外观" }).click();
     return {
       title: await page
         .locator('button[title^="打开文件 ("]')
