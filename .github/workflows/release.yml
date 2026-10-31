@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build-macos:
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       # secrets 上下文不能直接写在 step 的 if 里，先落到 env 再比较。
       # 没配证书时（当前状态）走未签名分支，行为与之前一致。
