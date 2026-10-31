@@ -26,7 +26,9 @@ VERSION = sys.argv[4]
 WINDOW_RECT = ((0, 0), (660, 400))
 APP_POS = (180, 170)
 FOLDER_POS = (480, 170)
-ICON_SIZE = 96
+# 必须是 128：背景图里的箭头端点是按 128pt 图标量出来的（见
+# tools/generate-dmg-background.py 注释）。改成 96 会让箭头两端各脱开约 17pt。
+ICON_SIZE = 128
 
 settings = f'''# -*- coding: utf-8 -*-
 from pathlib import Path
