@@ -1,26 +1,27 @@
 import { expect, test } from "@playwright/test";
 
-test("左侧栏只保留文件树，外观/快捷键/大纲在右侧面板", async ({ page }) => {
+test("左侧栏显示工作区与大纲，外观只在右侧面板", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "打开文件夹" }).first().click();
   await expect(page.getByRole("button", { name: "guide.md" })).toBeVisible();
 
   const sidebar = page.locator(".sidebar");
+  // 左栏不再有外观设置
   await expect(sidebar.getByRole("heading", { name: "外观" })).toHaveCount(0);
-  await expect(sidebar.getByRole("heading", { name: "快捷键" })).toHaveCount(0);
-  await expect(sidebar.getByRole("heading", { name: "大纲" })).toHaveCount(0);
-  await expect(sidebar.getByRole("heading", { name: "文档" })).toHaveCount(0);
 
-  // 打开文档后右侧面板出现大纲。
+  // 打开文档后，大纲出现在左栏
   await page.getByRole("button", { name: "guide.md" }).click();
-  const toggle = page.getByRole("button", { name: "大纲与外观" });
-  await toggle.click();
+  await expect(sidebar.getByRole("heading", { name: "大纲" })).toBeVisible();
+  await expect(sidebar.locator(".file-tree")).toBeVisible();
 
+  // 右侧面板只有外观：没有大纲、没有快捷键表
+  const toggle = page.getByRole("button", { name: "外观设置" });
+  await toggle.click();
   const right = page.locator(".rightbar");
   await expect(right).toBeVisible();
   await expect(right.getByRole("heading", { name: "外观" })).toBeVisible();
-  await expect(right.getByRole("heading", { name: "快捷键" })).toBeVisible();
-  await expect(right.getByRole("heading", { name: "大纲" })).toBeVisible();
+  await expect(right.getByRole("heading", { name: "大纲" })).toHaveCount(0);
+  await expect(right.getByRole("heading", { name: "快捷键" })).toHaveCount(0);
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
 
   // 再点一次收起。

@@ -109,22 +109,18 @@ test("快捷键文案随运行平台显示", async ({ page }) => {
       });
     }, platform);
     await page.goto("/");
-    // 快捷键表在右侧面板，默认收起。
-    await page.getByRole("button", { name: "大纲与外观" }).click();
+    // 快捷键文案现在只出现在工具栏按钮的 title 里（应用内快捷键表已移除）。
     return {
       title: await page
         .locator('button[title^="打开文件 ("]')
         .getAttribute("title"),
-      kbd: await page.locator(".shortcut-row kbd").first().textContent(),
     };
   };
 
   const mac = await openAs("macOS");
   expect(mac.title).toContain("⌘O");
-  expect(mac.kbd).toContain("⌘O");
 
   const win = await openAs("Windows");
   expect(win.title).toContain("Ctrl+O");
   expect(win.title).not.toContain("⌘");
-  expect(win.kbd).toContain("Ctrl+O");
 });

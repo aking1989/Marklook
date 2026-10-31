@@ -8,9 +8,9 @@ async function openSampleDoc(page: import("@playwright/test").Page) {
   ).toBeVisible();
 }
 
-/** 大纲与外观都在右侧面板，默认收起。 */
+/** 外观设置在右侧面板，默认收起。 */
 async function openRightPanel(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: "大纲与外观" }).click();
+  await page.getByRole("button", { name: "外观设置" }).click();
   await expect(page.locator(".rightbar")).toBeVisible();
 }
 
@@ -57,7 +57,6 @@ test("代码块复制按钮", async ({ page }) => {
 
 test("大纲点击跳转与当前项高亮", async ({ page }) => {
   await openSampleDoc(page);
-  await openRightPanel(page);
 
   await page.getByRole("button", { name: "渲染能力" }).click();
   await page.waitForTimeout(400);

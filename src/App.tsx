@@ -1538,8 +1538,8 @@ export default function App() {
             className={"tool-btn icon-only" + (rightOpen ? " tool-btn-on" : "")}
             onClick={() => setRightOpen((open) => !open)}
             aria-pressed={rightOpen}
-            aria-label="大纲与外观"
-            title="大纲与外观"
+            aria-label="外观设置"
+            title="外观设置"
           >
             <PanelRight size={16} />
           </button>
@@ -1580,13 +1580,6 @@ export default function App() {
               {workspaceTruncated && (
                 <p className="tree-truncated">仅显示前 10,000 个条目</p>
               )}
-              <SearchPanel
-                key={workspaceRoot}
-                onOpenResult={(resultPath, line) =>
-                  void openPath(resultPath, { gotoLine: line })
-                }
-                onRequestIndex={requestSearchIndex}
-              />
             </>
           ) : recentFiles.length > 0 ? (
             <section className="side-section">
@@ -1608,6 +1601,35 @@ export default function App() {
               </ul>
             </section>
           ) : null}
+
+          {render && render.outline.length > 0 && (
+            <section className="side-section outline">
+              <h2>大纲</h2>
+              <ul ref={outlineListRef}>
+                {render.outline.map((item) => (
+                  <li
+                    key={`${item.line}-${item.id}`}
+                    className={item.id === activeOutlineId ? "active" : ""}
+                    style={{ paddingLeft: (item.depth - 1) * 12 }}
+                  >
+                    <button onClick={() => jumpTo(item.line)}>
+                      {item.text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {workspaceRoot && (
+            <SearchPanel
+              key={workspaceRoot}
+              onOpenResult={(resultPath, line) =>
+                void openPath(resultPath, { gotoLine: line })
+              }
+              onRequestIndex={requestSearchIndex}
+            />
+          )}
         </aside>
 
         {/* 侧栏拖宽手柄：pointer 事件 + Pointer Capture，宽度入设置持久化 */}
@@ -1759,26 +1781,7 @@ export default function App() {
         </main>
 
         {rightOpen && (
-          <aside className="rightbar" aria-label="大纲与外观">
-            {render && render.outline.length > 0 && (
-              <section className="side-section outline">
-                <h2>大纲</h2>
-                <ul ref={outlineListRef}>
-                  {render.outline.map((item) => (
-                    <li
-                      key={`${item.line}-${item.id}`}
-                      className={item.id === activeOutlineId ? "active" : ""}
-                      style={{ paddingLeft: (item.depth - 1) * 12 }}
-                    >
-                      <button onClick={() => jumpTo(item.line)}>
-                        {item.text}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
+          <aside className="rightbar" aria-label="外观">
             <section className="side-section">
               <h2>外观</h2>
               <div className="setting-row">
@@ -1861,38 +1864,6 @@ export default function App() {
                 >
                   {allowRemoteImages ? "点击加载" : "已阻止"}
                 </button>
-              </div>
-            </section>
-
-            <section className="side-section shortcuts">
-              <h2>快捷键</h2>
-              <div className="shortcut-row">
-                <span>打开</span>
-                <kbd>{key("openFile")}</kbd>
-              </div>
-              <div className="shortcut-row">
-                <span>阅读 / 源码</span>
-                <kbd>{key("toggleMode")}</kbd>
-              </div>
-              <div className="shortcut-row">
-                <span>保存</span>
-                <kbd>{key("save")}</kbd>
-              </div>
-              <div className="shortcut-row">
-                <span>导出 HTML</span>
-                <kbd>{key("exportHtml")}</kbd>
-              </div>
-              <div className="shortcut-row">
-                <span>打印 / PDF</span>
-                <kbd>{key("print")}</kbd>
-              </div>
-              <div className="shortcut-row">
-                <span>关闭标签</span>
-                <kbd>{key("closeTab")}</kbd>
-              </div>
-              <div className="shortcut-row">
-                <span>上 / 下一个标签</span>
-                <kbd>{isMac ? "⌘⇧[ ]" : "Ctrl+Tab"}</kbd>
               </div>
             </section>
           </aside>
