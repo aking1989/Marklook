@@ -269,6 +269,16 @@ export const mockPlatform: Platform = {
     return "/mock";
   },
 
+  async allowPath(path: string): Promise<void> {
+    // 浏览器里没有进程白名单，只校验文件确实存在，行为与 Rust 侧对齐。
+    // 调用记录留给 E2E 断言「打开前确实补过授权」。
+    if (!files.has(path)) {
+      throw new PlatformError("NOT_FOUND", `文件不存在：${path}`);
+    }
+    const target = window as unknown as { __mockAllowed?: string[] };
+    target.__mockAllowed = [...(target.__mockAllowed ?? []), path];
+  },
+
   async readDocument(path: string): Promise<TextDocument> {
     const file = readFile(path);
     return {

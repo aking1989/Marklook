@@ -86,6 +86,8 @@ export interface Platform {
   ): Promise<SaveAssetResult>;
   pickFile(): Promise<string | null>;
   pickFolder(): Promise<string | null>;
+  /** 把「应用自己记住的路径」（如最近列表）补进主进程白名单，之后才能读。 */
+  allowPath(path: string): Promise<void>;
   readDocument(path: string): Promise<TextDocument>;
   writeDocument(
     path: string,

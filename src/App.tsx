@@ -523,6 +523,10 @@ export default function App() {
       }
 
       try {
+        // 「最近」等应用自己记住的路径没经过文件对话框，主进程白名单里没有，
+        // 先补授权再读（否则会以 PATH_OUTSIDE_ROOT 失败）。失败不阻断，
+        // 让 readDocument 抛出真正的错误。
+        await platform.allowPath(target).catch(() => undefined);
         const d = await platform.readDocument(target);
         const rendered = await renderMarkdown({
           source: d.content,

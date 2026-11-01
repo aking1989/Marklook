@@ -338,3 +338,51 @@ fn draft_commands_round_trip() {
         .expect("load_draft 应成功");
     assert!(after.is_null());
 }
+
+/// 「最近」列表跨会话重开：路径没经过文件对话框，前端先调 allow_path 补授权。
+/// 回归：之前直接 read_document 会以 PATH_OUTSIDE_ROOT 拒绝，表现为「最近」里
+/// 每个文件点开都报错。
+#[test]
+fn allow_path_grants_read_for_recent_files() {
+    let (_app, window) = build_app();
+    let dir = tempdir().unwrap();
+    let doc = dir.path().join("recent.md");
+    fs::write(&doc, "最近打开的内容").unwrap();
+    let path = doc.to_string_lossy().into_owned();
+
+    let denied = call(
+        &window,
+        "read_document",
+        serde_json::json!({ "path": path }),
+    )
+    .expect_err("未授权路径应被拒绝");
+    assert_eq!(denied["code"], "PATH_OUTSIDE_ROOT");
+
+    call(&window, "allow_path", serde_json::json!({ "path": path })).expect("allow_path 应成功");
+
+    let document = call(
+        &window,
+        "read_document",
+        serde_json::json!({ "path": path }),
+    )
+    .expect("补授权后应可读");
+    assert_eq!(document["content"], "最近打开的内容");
+}
+
+/// allow_path 不能变成任意文件读取通道：非 Markdown 扩展名一律拒绝。
+#[test]
+fn allow_path_rejects_non_markdown() {
+    let (_app, window) = build_app();
+    let dir = tempdir().unwrap();
+    let secret = dir.path().join("secret.txt");
+    fs::write(&secret, "secret").unwrap();
+
+    let error = call(
+        &window,
+        "allow_path",
+        serde_json::json!({ "path": secret.to_string_lossy() }),
+    )
+    .expect_err("非 Markdown 文件应被拒绝");
+
+    assert_eq!(error["code"], "UNSUPPORTED");
+}

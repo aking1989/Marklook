@@ -16,6 +16,18 @@ import {
   type WriteResult,
 } from "./types";
 
+/**
+ * 主进程的错误 data 常常只是路径，直接显示等于「打开失败：/Users/...」，看不懂。
+ * 这里给常见错误码补一句人话，原始 data 仍放在 detail 里。
+ */
+const FRIENDLY_MESSAGES: Partial<Record<PlatformErrorCode, string>> = {
+  NOT_FOUND: "文件不存在或已被移动",
+  PERMISSION_DENIED: "没有访问该文件的权限",
+  PATH_OUTSIDE_ROOT: "没有访问该文件的权限，请用「打开」重新选择一次",
+  INVALID_UTF8: "文件不是 UTF-8 编码，暂不支持",
+  TOO_LARGE: "文件过大，暂不支持",
+};
+
 function normalizeError(error: unknown): PlatformError {
   if (error && typeof error === "object") {
     const record = error as Record<string, unknown>;
@@ -31,7 +43,8 @@ function normalizeError(error: unknown): PlatformError {
       message = record.message;
     }
 
-    return new PlatformError(rawCode as PlatformErrorCode, message, data);
+    const code = rawCode as PlatformErrorCode;
+    return new PlatformError(code, FRIENDLY_MESSAGES[code] ?? message, data);
   }
 
   return new PlatformError("IO", String(error));
@@ -71,6 +84,8 @@ export const tauriPlatform: Platform = {
   pickFile: () => call<string | null>("pick_file_and_allow"),
 
   pickFolder: () => call<string | null>("pick_folder_and_allow"),
+
+  allowPath: (path) => call<void>("allow_path", { path }),
 
   readDocument: (path) => call<TextDocument>("read_document", { path }),
 

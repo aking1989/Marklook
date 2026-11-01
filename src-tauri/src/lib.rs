@@ -81,6 +81,7 @@ pub fn configure<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builde
             commands::draft::load_draft,
             commands::draft::clear_draft,
             commands::draft::cleanup_drafts,
+            commands::document::allow_path,
             commands::document::read_document,
             commands::document::write_document,
             commands::document::take_pending_open,

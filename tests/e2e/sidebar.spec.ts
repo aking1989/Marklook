@@ -84,3 +84,35 @@ test("最近文件里已删除的条目在启动时被清理", async ({ page }) 
   await expect(page.locator(".recent-item")).toHaveCount(1);
   await expect(page.locator(".recent-item")).toContainText("welcome.md");
 });
+
+test("从最近列表打开文件前会补授权", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "marklook.recents",
+      JSON.stringify({
+        state: {
+          recentFiles: [
+            {
+              path: "/mock/docs/guide.md",
+              name: "guide.md",
+              lastOpenedAt: 1,
+            },
+          ],
+          recentWorkspaces: [],
+        },
+        version: 0,
+      }),
+    );
+  });
+  await page.goto("/");
+
+  await page.locator(".recent-item").first().click();
+  await expect(page.getByRole("heading", { name: "工作区指南" })).toBeVisible();
+
+  // 主进程白名单里没有这个路径（跨会话），打开前必须先 allowPath。
+  const allowed = await page.evaluate(
+    () =>
+      (window as unknown as { __mockAllowed?: string[] }).__mockAllowed ?? [],
+  );
+  expect(allowed).toContain("/mock/docs/guide.md");
+});
