@@ -60,3 +60,31 @@ test("IME 组合输入期间全局快捷键不触发", async ({ page }) => {
     page.getByRole("button", { name: "阅读", exact: true }),
   ).toBeVisible();
 });
+
+test("切换阅读/源码保持位置，不跳回顶部", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "选择文件" }).click();
+  const reader = page.locator(".reader-scroll");
+  await expect(reader).toBeVisible();
+
+  // 滚到文档中段，等阅读器把当前行写进运行时。
+  await reader.evaluate((el) => {
+    el.scrollTop = 900;
+  });
+  await page.waitForTimeout(400);
+  expect(await reader.evaluate((el) => el.scrollTop)).toBeGreaterThan(300);
+
+  // 阅读 → 源码：编辑器应停在同一段落，而不是第 1 行。
+  await page.getByRole("button", { name: "源码" }).click();
+  const editorScroller = page.locator(".cm-scroller");
+  await expect(editorScroller).toBeVisible();
+  await page.waitForTimeout(400);
+  expect(await editorScroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(
+    100,
+  );
+
+  // 源码 → 阅读：回到原来的阅读位置，而不是顶部。
+  await page.getByRole("button", { name: "阅读", exact: true }).click();
+  await page.waitForTimeout(600);
+  expect(await reader.evaluate((el) => el.scrollTop)).toBeGreaterThan(300);
+});

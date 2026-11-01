@@ -961,7 +961,8 @@ export default function App() {
         updateTab(id as string, { content: value });
       }
       saveEditorState(id as string, editorRef.current.getState());
-      pendingReadLine.current = editorRef.current.getCursorLine();
+      // 用「视口顶部行」而不是光标行：用户可能只是滚动着看，光标停在别处。
+      pendingReadLine.current = editorRef.current.getTopVisibleLine();
     }
     const currentContent = getTab(id as string)?.content ?? "";
 
@@ -985,6 +986,39 @@ export default function App() {
       updateTab(id as string, { error: errorMessage(caught), mode: "read" });
     }
   }, [allowRemoteImages, getTab, showNotice, theme, updateTab]);
+
+  /**
+   * 模式切换后把「离开时的位置」还原到新视图上。
+   * 之前 pendingEditLine / pendingReadLine 只写不读：阅读到第 10 页切源码会回到第 1 行，
+   * 切回阅读又因为重新渲染 innerHTML 回到顶部。这里在 DOM 提交后按行号重新定位。
+   * 只在同一标签内切换模式时生效——换标签各自有 initialScroll / EditorState 负责。
+   */
+  const lastTabIdRef = useRef<string | null>(null);
+  const lastModeRef = useRef<"read" | "edit">("read");
+  useEffect(() => {
+    const tabId = activeTab?.id ?? null;
+    const sameTab = lastTabIdRef.current === tabId;
+    const switched = lastModeRef.current !== mode;
+    lastTabIdRef.current = tabId;
+    lastModeRef.current = mode;
+    if (!sameTab || !switched) return;
+
+    const line =
+      mode === "edit" ? pendingEditLine.current : pendingReadLine.current;
+    if (!line || line <= 1) return;
+    // 双帧：阅读视图刚替换 innerHTML、编辑器刚挂载，布局要一帧才稳定。
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => {
+        if (mode === "edit") editorRef.current?.scrollToLine(line, false);
+        else readerRef.current?.scrollToLine(line);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      if (second) cancelAnimationFrame(second);
+    };
+  }, [mode, activeTab?.id]);
 
   // ---- 打印（活动标签；源码模式先渲染并切回阅读） ----
   const printDocument = useCallback(async () => {
